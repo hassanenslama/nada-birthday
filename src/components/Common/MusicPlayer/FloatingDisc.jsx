@@ -20,6 +20,7 @@ const FloatingDisc = () => {
     const [showMenu, setShowMenu] = useState(false);
     const longPressTimerRef = useRef(null);
     const isLongPress = useRef(false);
+    const isDragging = useRef(false); // Track dragging state
 
     const { currentUser } = useAuth(); // Get user auth state
     if (!currentUser || isPermanentlyDisabled || !showPlayer) return null;
@@ -27,14 +28,18 @@ const FloatingDisc = () => {
     const handleMouseDown = () => {
         isLongPress.current = false;
         longPressTimerRef.current = setTimeout(() => {
-            isLongPress.current = true;
-            setShowMenu(true);
+            if (!isDragging.current) { // Only trigger long press if NOT dragging
+                isLongPress.current = true;
+                setShowMenu(true);
+            }
         }, 600); // 600ms for long press
     };
 
     const handleMouseUp = () => {
         if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
-        if (!isLongPress.current) {
+
+        // Prevent click if dragging or if long press happened
+        if (!isDragging.current && !isLongPress.current) {
             togglePlay();
         }
     };
@@ -51,6 +56,13 @@ const FloatingDisc = () => {
                 onDragStart={() => {
                     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
                     isLongPress.current = false;
+                    isDragging.current = true; // Start Drag
+                }}
+                onDragEnd={() => {
+                    // Slight delay to prevent 'click' from firing immediately after drag release
+                    setTimeout(() => {
+                        isDragging.current = false;
+                    }, 100);
                 }}
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
