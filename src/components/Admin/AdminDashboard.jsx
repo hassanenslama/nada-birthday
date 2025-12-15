@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
-import { LayoutDashboard, LogOut, Settings, RotateCw, AlertTriangle, Check, Shield, Smartphone, Globe, Clock, MapPin, Activity, Home } from 'lucide-react';
+import { LayoutDashboard, LogOut, Settings, RotateCw, AlertTriangle, Check, Shield, Smartphone, Globe, Clock, MapPin, Activity, Home, Menu, X, ChevronRight } from 'lucide-react';
 import { usePresence } from '../../context/PresenceContext';
 
 // New Modular Components
@@ -31,6 +31,7 @@ const AdminDashboard = () => {
     const { logout, currentUser } = useAuth();
     const [toast, setToast] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [showMobileNav, setShowMobileNav] = useState(false);
 
     // State
     const [nadaProfile, setNadaProfile] = useState(null);
@@ -327,7 +328,12 @@ const AdminDashboard = () => {
                 </div>
 
                 <div className="flex items-center gap-2 md:gap-3">
-                    <button onClick={() => window.location.href = '/'} className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 transition border border-blue-500/20" title="العودة للرئيسية">
+                    {/* Mobile Menu Toggle */}
+                    <button onClick={() => setShowMobileNav(true)} className="md:hidden p-2.5 rounded-xl bg-[#1a1a1a] text-gold border border-gold/20">
+                        <Menu size={20} />
+                    </button>
+
+                    <button onClick={() => window.location.href = '/'} className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 transition border border-blue-500/20 hidden md:block" title="العودة للرئيسية">
                         <Home size={20} />
                     </button>
                     <button onClick={() => setShowProfileModal(true)} className="flex items-center gap-3 bg-[#1a1a1a] hover:bg-[#222] border border-white/5 rounded-full p-1 pr-4 transition group">
@@ -343,11 +349,72 @@ const AdminDashboard = () => {
                 </div>
             </header>
 
-            <div className="flex flex-1 overflow-hidden">
-                {/* Check if mobile or desktop - for now simple Responsive Layout */}
-                {/* Sidebar (Desktop) / Horizontal Scroll (Mobile) */}
-                {/* Sidebar (Desktop) / Horizontal Scroll (Mobile) */}
-                <aside className="w-full md:w-64 bg-[#0f0f0f] border-r border-white/5 flex flex-row md:flex-col items-center md:items-stretch overflow-x-auto md:overflow-visible z-[100] fixed md:relative bottom-0 md:bottom-auto left-0 h-20 md:h-auto border-t md:border-t-0 p-2 md:p-4 gap-2 safe-area-bottom shadow-2xl md:shadow-none">
+            {/* Mobile Navigation Drawer */}
+            <AnimatePresence>
+                {showMobileNav && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowMobileNav(false)}
+                            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] md:hidden"
+                        />
+                        <motion.div
+                            initial={{ x: '100%' }}
+                            animate={{ x: 0 }}
+                            exit={{ x: '100%' }}
+                            transition={{ type: "spring", bounce: 0, duration: 0.4 }}
+                            className="fixed top-0 right-0 bottom-0 w-3/4 max-w-sm bg-[#111] border-l border-white/10 z-[201] md:hidden shadow-2xl overflow-y-auto"
+                        >
+                            <div className="p-6">
+                                <div className="flex items-center justify-between mb-8">
+                                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                                        <LayoutDashboard className="text-gold" size={24} />
+                                        القائمة
+                                    </h2>
+                                    <button onClick={() => setShowMobileNav(false)} className="p-2 bg-white/5 rounded-full text-gray-400">
+                                        <X size={20} />
+                                    </button>
+                                </div>
+
+                                <div className="space-y-2">
+                                    {tabs.map(tab => {
+                                        const Icon = tab.icon;
+                                        const isActive = activeTab === tab.id;
+                                        return (
+                                            <button
+                                                key={tab.id}
+                                                onClick={() => { setActiveTab(tab.id); setShowMobileNav(false); }}
+                                                className={`w-full flex items-center gap-4 p-4 rounded-xl transition-all ${isActive ? 'bg-gold text-black font-bold shadow-lg shadow-gold/20' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}
+                                            >
+                                                <Icon size={24} />
+                                                <span className="text-lg">{tab.label}</span>
+                                                {isActive && <ChevronRight className="mr-auto" size={20} />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                <div className="mt-8 pt-8 border-t border-white/10 space-y-3">
+                                    <button onClick={() => window.location.href = '/'} className="w-full flex items-center gap-3 p-3 rounded-xl text-blue-400 hover:bg-blue-500/10">
+                                        <Home size={20} />
+                                        <span>العودة للرئيسية</span>
+                                    </button>
+                                    <button onClick={() => { fetchUsersList(); setShowLinkModal(true); setShowMobileNav(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl text-gray-400 hover:bg-white/5">
+                                        <Settings size={20} />
+                                        <span>الإعدادات</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+
+            <div className="flex flex-1 overflow-hidden relative">
+                {/* Desktop Sidebar - Hidden on Mobile */}
+                <aside className="hidden md:flex flex-col w-64 bg-[#0f0f0f] border-r border-white/5 p-4 gap-2 z-40">
                     {tabs.map(tab => {
                         const Icon = tab.icon;
                         const isActive = activeTab === tab.id;
@@ -355,18 +422,18 @@ const AdminDashboard = () => {
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-300 min-w-[max-content] md:min-w-0 ${isActive ? 'bg-gold text-black shadow-[0_0_15px_rgba(197,160,89,0.4)] font-bold' : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'}`}
+                                className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-300 ${isActive ? 'bg-gold text-black shadow-[0_0_15px_rgba(197,160,89,0.4)] font-bold' : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'}`}
                             >
                                 <Icon size={20} className={isActive ? 'scale-110' : ''} />
                                 <span className="text-sm">{tab.label}</span>
-                                {isActive && <motion.div layoutId="activeTabIndicator" className="ml-auto w-1.5 h-1.5 bg-white rounded-full hidden md:block" />}
+                                {isActive && <motion.div layoutId="activeTabIndicatorDesktop" className="ml-auto w-1.5 h-1.5 bg-white rounded-full" />}
                             </button>
                         );
                     })}
                 </aside>
 
                 {/* Main Content Area */}
-                <main className="flex-1 overflow-y-auto p-4 pb-24 md:p-8 md:pb-8 custom-scrollbar relative">
+                <main className="flex-1 overflow-y-auto w-full p-4 pb-32 md:p-8 md:pb-8 custom-scrollbar relative">
                     {renderContent()}
 
                     <footer className="mt-8 text-center text-gray-600 text-xs font-mono">
