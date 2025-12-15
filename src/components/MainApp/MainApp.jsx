@@ -38,11 +38,41 @@ const MainApp = () => {
         }
     };
 
-    // Sync Presence when tab changes
+    // 4. Hash Routing Support (Back Button Fix)
+    useEffect(() => {
+        const handleHashChange = () => {
+            const hash = window.location.hash.replace('#', '');
+            const validTabs = ['home', 'journey', 'feelings', 'messages', 'fun', 'coupons', 'admin', 'settings'];
+
+            if (hash && validTabs.includes(hash)) {
+                setActiveTab(hash);
+            } else if (!hash) {
+                setActiveTab('home');
+            }
+        };
+
+        // Initial Load: Check hash first, if empty check local storage logic
+        const currentHash = window.location.hash.replace('#', '');
+        if (currentHash) {
+            handleHashChange();
+        }
+
+        window.addEventListener('hashchange', handleHashChange);
+        return () => window.removeEventListener('hashchange', handleHashChange);
+    }, []);
+
     // Sync Presence & Persistence when tab changes
     useEffect(() => {
         updateLocation(getTabNameAr(activeTab));
         localStorage.setItem('nav_active_tab', activeTab);
+
+        // Sync Hash with State (without triggering new history if it matches)
+        if (window.location.hash.replace('#', '') !== activeTab) {
+            // We use replaceState for initial load to avoid double history, 
+            // but normally we want pushState. 
+            // Simple hash assignment works as pushState.
+            window.location.hash = activeTab;
+        }
     }, [activeTab]);
 
     const renderContent = () => {
