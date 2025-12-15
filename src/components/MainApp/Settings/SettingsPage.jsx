@@ -4,11 +4,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { LogOut, Globe, Lock, ChevronLeft, User, Key, Save, X, Loader2, CheckCircle2, Music, Bell } from 'lucide-react';
 import { supabase } from '../../../supabase';
 import { useMusic } from '../../../context/MusicContext';
+import { usePresence } from '../../../context/PresenceContext';
+import { EyeOff } from 'lucide-react'; // Icon for Ghost Mode
 
 
 const SettingsPage = () => {
     const { logout, currentUser, userRole } = useAuth();
     const { isPermanentlyDisabled, setPermanentlyDisabled } = useMusic();
+    const { isGhostMode, toggleGhostMode } = usePresence();
     const [loading, setLoading] = useState(false);
     const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(() => localStorage.getItem('notification_sound_enabled') !== 'false');
 
@@ -158,6 +161,28 @@ const SettingsPage = () => {
                             }}
                         />
                         <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+                    </label>
+                </div>
+
+                {/* Ghost Mode Toggle */}
+                <div className="w-full flex items-center justify-between p-4 rounded-2xl border border-white/5 bg-white/5 backdrop-blur-sm mb-3 transition-colors hover:bg-white/10">
+                    <div className="flex items-center gap-4">
+                        <div className="p-2 rounded-full bg-purple-500/10 text-purple-400">
+                            <EyeOff size={20} />
+                        </div>
+                        <div className="text-right">
+                            <h3 className="font-bold text-sm text-gray-200">وضع الشبح (إخفاء الظهور)</h3>
+                            <p className="text-xs text-gray-500 mt-1">{isGhostMode ? 'مفعل (لن يراك أحد)' : 'معطل (أنت مرئي للجميع)'}</p>
+                        </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer ml-2">
+                        <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={isGhostMode}
+                            onChange={(e) => toggleGhostMode(e.target.checked)}
+                        />
+                        <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
                     </label>
                 </div>
 

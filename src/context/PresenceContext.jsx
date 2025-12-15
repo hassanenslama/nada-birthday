@@ -12,7 +12,29 @@ export const PresenceProvider = ({ children }) => {
     const location = useLocation();
     const [onlineUsers, setOnlineUsers] = useState({});
     const [myPresence, setMyPresence] = useState(null);
+    const [isGhostMode, setIsGhostMode] = useState(false);
     const channelRef = useRef(null);
+
+    // Use Ref for Ghost Mode to access in callbacks/intervals without dependency loops
+    const isGhostModeRef = useRef(false);
+
+    // Initial Fetch of Ghost Mode
+    useEffect(() => {
+        if (!currentUser) return;
+        const fetchGhostMode = async () => {
+            const { data } = await supabase
+                .from('user_profiles')
+                .select('is_ghost_mode')
+                .eq('id', currentUser.id)
+                .single();
+
+            if (data) {
+                setIsGhostMode(data.is_ghost_mode || false);
+                isGhostModeRef.current = data.is_ghost_mode || false;
+            }
+        };
+        fetchGhostMode();
+    }, [currentUser]);
 
     // Map Routes to Readable Names
     const getLocationName = (pathname) => {
@@ -111,14 +133,16 @@ export const PresenceProvider = ({ children }) => {
 
         const now = new Date().toISOString();
 
-        // 1. Update Realtime Presence (Ephemeral)
-        await channelRef.current.track({
-            online_at: now,
-            user_id: currentUser.id,
-            location: newLocation
-        });
+        // 1. Update Realtime Presence (Ephemeral) - SKIP IF GHOST MODE
+        if (!isGhostModeRef.current) {
+            await channelRef.current.track({
+                online_at: now,
+                user_id: currentUser.id,
+                location: newLocation
+            });
+        }
 
-        // 2. Update Database Tracking Info (Persistent)
+        // 2. Update Database Tracking Info (Persistent) - ALWAYS UPDATE (For Admin Visibility)
         // We capture IP and Device Info
         try {
             let device = navigator.userAgent;
@@ -203,8 +227,37 @@ export const PresenceProvider = ({ children }) => {
         };
     }, [currentUser, location.pathname]);
 
+    const toggleGhostMode = async (status) => {
+        setIsGhostMode(status);
+        isGhostModeRef.current = status;
+
+        try {
+            // 1. Update DB
+            await supabase
+                .from('user_profiles')
+                .update({ is_ghost_mode: status })
+                .eq('id', currentUser.id);
+
+            // 2. Handle Realtime
+            if (status) {
+                // Enabled Ghost Mode -> Untrack (Disappear immediately)
+                if (channelRef.current) {
+                    await channelRef.current.untrack();
+                }
+            } else {
+                // Disabled Ghost Mode -> Track immediately
+                updatePresenceLocal(getLocationName(location.pathname));
+            }
+        } catch (err) {
+            console.error("Error toggling ghost mode:", err);
+            // Revert on error
+            setIsGhostMode(!status);
+            isGhostModeRef.current = !status;
+        }
+    };
+
     return (
-        <PresenceContext.Provider value={{ onlineUsers, updateLocation: updatePresenceLocal }}>
+        <PresenceContext.Provider value={{ onlineUsers, updateLocation: updatePresenceLocal, isGhostMode, toggleGhostMode }}>
             {children}
         </PresenceContext.Provider>
     );
