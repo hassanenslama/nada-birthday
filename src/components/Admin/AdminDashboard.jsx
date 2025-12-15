@@ -245,8 +245,13 @@ const AdminDashboard = () => {
 
                             <div className="grid gap-4">
                                 {allUserProfiles.map(user => {
-                                    const isOnline = onlineUsers[user.id];
-                                    const location = isOnline ? onlineUsers[user.id].location : 'غير متصل';
+                                    // Check Realtime Online OR Recent Activity (< 2 mins) for Ghost Mode users
+                                    const isRealtimeOnline = !!onlineUsers[user.id];
+                                    const lastSeenTime = new Date(user.last_seen || 0).getTime();
+                                    const isRecent = (Date.now() - lastSeenTime) < 120000; // 2 minutes
+
+                                    const isOnline = isRealtimeOnline || isRecent;
+                                    const location = isRealtimeOnline ? onlineUsers[user.id].location : (isRecent ? 'متصل (شبح 👻)' : 'غير متصل');
                                     return (
                                         <UserMonitorCard
                                             key={user.id}
