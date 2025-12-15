@@ -21,7 +21,9 @@ const useLongPress = (callback = () => { }, ms = 500) => {
         onMouseDown: () => setStartLongPress(true),
         onMouseUp: () => setStartLongPress(false),
         onMouseLeave: () => setStartLongPress(false),
+        onMouseMove: () => setStartLongPress(false),
         onTouchStart: () => setStartLongPress(true),
+        onTouchMove: () => setStartLongPress(false),
         onTouchEnd: () => setStartLongPress(false),
     };
 };

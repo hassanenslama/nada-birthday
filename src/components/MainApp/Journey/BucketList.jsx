@@ -182,7 +182,7 @@ const BucketList = () => {
         <div className="p-4 sm:p-6 pb-20 min-h-[60vh]">
 
             {/* Header Stats */}
-            <div className="text-center mb-6 relative">
+            <div className="text-center mb-4 relative">
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-gold/20 blur-3xl rounded-full -z-10" />
 
                 <h2 className="text-2xl md:text-4xl font-bold font-cairo text-white mb-2 drop-shadow-lg">
@@ -206,7 +206,7 @@ const BucketList = () => {
 
 
             {/* Filter Tabs */}
-            <div className="flex justify-center mb-6 gap-2">
+            <div className="flex justify-center mb-4 gap-2">
                 <button
                     onClick={() => setFilter('all')}
                     className={`px-4 py-1.5 rounded-xl font-bold font-cairo text-sm transition-all flex items-center gap-2 ${filter === 'all' ? 'bg-white text-black shadow-lg scale-105' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
@@ -231,7 +231,7 @@ const BucketList = () => {
                     <p className="text-red-300 text-xs font-mono">يرجى تشغيل ملف create_wishes_table.sql</p>
                 </div>
             ) : (
-                <div className="max-w-2xl mx-auto mb-12 relative z-20">
+                <div className="max-w-2xl mx-auto mb-6 relative z-20">
                     <form onSubmit={handleAddWish} className="relative group">
                         <div className="absolute -inset-1 bg-gradient-to-r from-gold via-orange-500 to-gold rounded-2xl opacity-20 group-hover:opacity-40 transition duration-500 blur-sm"></div>
                         <input
@@ -271,15 +271,13 @@ const BucketList = () => {
                                 {wishes.length > 0 ? (
                                     wishes.map((wish, index) => (
                                         (wish.status !== 'deleted') && (
-                                            (wish.status !== 'deleted') && (
-                                                <SortableWishItem
-                                                    key={wish.id}
-                                                    item={wish}
-                                                    index={index}
-                                                    onUpdate={handleUpdateWish}
-                                                    onDelete={handleDeleteWish}
-                                                />
-                                            )
+                                            <SortableWishItem
+                                                key={wish.id}
+                                                item={wish}
+                                                index={index}
+                                                onUpdate={handleUpdateWish}
+                                                onDelete={handleDeleteWish}
+                                            />
                                         )
                                     ))
                                 ) : (
