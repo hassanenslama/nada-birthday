@@ -820,11 +820,22 @@ const MessagesPage = () => {
         }, 2000);
     };
 
-    // Emoji Back Button Support
+    // Emoji & Interaction Back Button Support
     useEffect(() => {
         const handleHashChange = () => {
             const hash = window.location.hash.replace('#', '');
-            setShowEmojis(hash === 'emoji');
+
+            // Handle Emoji
+            if (hash === 'emoji') {
+                setShowEmojis(true);
+            } else {
+                setShowEmojis(false);
+            }
+
+            // Handle Message Options (Reaction/Action Menu)
+            if (hash !== 'message-options') {
+                setInteractionState({ id: null, mode: null });
+            }
         };
 
         window.addEventListener('hashchange', handleHashChange);
@@ -1431,11 +1442,18 @@ const MessagesPage = () => {
                                     onReaction={(msgId, reaction) => {
                                         if (reaction) {
                                             handleReaction(msgId, reaction);
-                                            setInteractionState({ id: null, mode: null });
+                                            window.history.back(); // Close menu
                                         } else if (msgId) {
+                                            // Open Reaction Menu
+                                            window.location.hash = 'message-options';
                                             setInteractionState({ id: msgId, mode: 'reaction' });
                                         } else {
-                                            setInteractionState({ id: null, mode: null });
+                                            // Close Menu
+                                            if (window.location.hash === '#message-options') {
+                                                window.history.back();
+                                            } else {
+                                                setInteractionState({ id: null, mode: null });
+                                            }
                                         }
                                     }}
                                     onAction={(msgOrId, action) => {
@@ -1443,18 +1461,22 @@ const MessagesPage = () => {
                                             const msg = msgOrId;
                                             setEditMessageId(msg.id);
                                             setEditText(msg.text);
-                                            setInteractionState({ id: null, mode: null });
+                                            window.history.back(); // Close menu
                                         } else if (action === 'delete') {
-                                            // Handle both object and ID (MessageItem passes ID for delete now, but just in case)
                                             const idToDelete = typeof msgOrId === 'object' ? msgOrId.id : msgOrId;
                                             handleDeleteMessage(idToDelete);
-                                            setInteractionState({ id: null, mode: null });
+                                            window.history.back(); // Close menu
                                         } else if (msgOrId) {
-                                            // Opening the menu
+                                            // Open Action Menu
+                                            window.location.hash = 'message-options';
                                             setInteractionState({ id: msgOrId, mode: 'action' });
                                         } else {
-                                            // Closing
-                                            setInteractionState({ id: null, mode: null });
+                                            // Close Menu
+                                            if (window.location.hash === '#message-options') {
+                                                window.history.back();
+                                            } else {
+                                                setInteractionState({ id: null, mode: null });
+                                            }
                                         }
                                     }}
                                     onReply={setReplyTo}
