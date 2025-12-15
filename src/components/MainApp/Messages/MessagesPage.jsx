@@ -6,6 +6,7 @@ import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import { uploadToCloudinary, compressImage } from '../../../utils/cloudinaryUpload';
 import { usePresence } from '../../../context/PresenceContext';
 import { useMusic } from '../../../context/MusicContext';
+import { useBackButton } from '../../../context/BackButtonContext';
 import { Send, Smile, X, Loader2, CheckCheck, Check, Paperclip, Edit2, Camera, Reply, Trash2, Ban, Music, User as UserIcon } from 'lucide-react';
 
 // Custom Hook for Long Press
@@ -565,7 +566,8 @@ const mapProfileFromDB = (data) => ({
     bio: data.bio,
     bioUpdatedAt: data.bio_updated_at,
     chatBubbleColor: data.chat_bubble_color || '#e5c15d',
-    bioColor: data.bio_color || '#e5c15d'
+    bioColor: data.bio_color || '#e5c15d',
+    lastSeen: data.last_seen
 });
 
 const MessagesPage = () => {
@@ -586,6 +588,13 @@ const MessagesPage = () => {
     // UI State
     const [showEmojis, setShowEmojis] = useState(false);
     const [isFocused, setIsFocused] = useState(false); // Track input focus
+
+    // Add onFocus/onBlur to input
+    const handleInputFocus = () => setIsFocused(true);
+    const handleInputBlur = () => {
+        // Tiny delay to allow focus switch
+        setTimeout(() => setIsFocused(false), 200);
+    };
     const [showProfile, setShowProfile] = useState(false);
     const [showMyProfile, setShowMyProfile] = useState(false);
     const [interactionState, setInteractionState] = useState({ id: null, mode: null }); // { id: 123, mode: 'reaction' | 'action' }
@@ -620,6 +629,61 @@ const MessagesPage = () => {
     const [otherProfile, setOtherProfile] = useState({});
     const [otherUserUid, setOtherUserUid] = useState(null);
     const [myNicknameForOther, setMyNicknameForOther] = useState('');
+
+    const { registerHandler, unregisterHandler } = useBackButton();
+
+    // REGISTER BACK HANDLERS
+
+    // 1. Emoji Picker
+    useEffect(() => {
+        if (showEmojis) {
+            registerHandler('emoji-picker', () => setShowEmojis(false), 20);
+        } else {
+            unregisterHandler('emoji-picker');
+        }
+        return () => unregisterHandler('emoji-picker');
+    }, [showEmojis]);
+
+    // 2. Profile Modals
+    useEffect(() => {
+        if (showMyProfile || showProfile) {
+            registerHandler('profile-modal', () => {
+                setShowMyProfile(false);
+                setShowProfile(false);
+            }, 30);
+        } else {
+            unregisterHandler('profile-modal');
+        }
+        return () => unregisterHandler('profile-modal');
+    }, [showMyProfile, showProfile]);
+
+    // 3. Interaction State (Reactions/Actions)
+    useEffect(() => {
+        if (interactionState.id) {
+            registerHandler('interaction-menu', () => setInteractionState({ id: null, mode: null }), 40);
+        } else {
+            unregisterHandler('interaction-menu');
+        }
+        return () => unregisterHandler('interaction-menu');
+    }, [interactionState.id]);
+
+    // 4. Keyboard / Focused Input (Optional, usually OS handles this, but we can try)
+    useEffect(() => {
+        if (isFocused) {
+            registerHandler('input-focus', () => {
+                // Blur inputs
+                if (fileInputRef.current) fileInputRef.current.blur();
+                // We don't have direct ref to main input? We need one.
+                // Assuming valid generic blur logic or finding the active element.
+                if (document.activeElement) document.activeElement.blur();
+                setIsFocused(false);
+            }, 10);
+        } else {
+            unregisterHandler('input-focus');
+        }
+        return () => unregisterHandler('input-focus');
+    }, [isFocused]);
+
 
     // Constants
     const MESSAGES_PER_PAGE = 20;
@@ -1223,6 +1287,22 @@ const MessagesPage = () => {
     // Display name: use nickname if set, otherwise use real name
     const displayName = myNicknameForOther || otherProfile.displayName;
 
+    const getLastSeenText = (dateString) => {
+        if (!dateString) return 'غير متصل';
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) return 'كان متصلاً قبل لحظات';
+        if (diffMins < 60) return `آخر ظهور منذ ${diffMins} دقيقة`;
+        if (diffHours < 24) return `آخر ظهور منذ ${diffHours} ساعة`;
+        if (diffDays === 1) return 'آخر ظهور أمس';
+        return `آخر ظهور ${date.toLocaleDateString('ar-EG')}`;
+    };
+
     return (
         <div className="fixed inset-0 w-full h-full bg-[#0a0a0a] flex flex-col font-cairo overflow-hidden">
             <AnimatePresence>
@@ -1293,7 +1373,7 @@ const MessagesPage = () => {
                                     متصل الآن {partnerLocation ? `- ${partnerLocation}` : ''}
                                 </span>
                             ) : (
-                                <span className="text-gray-600 text-[10px]">غير متصل</span>
+                                <span className="text-gray-500 text-[10px]">{getLastSeenText(otherProfile.lastSeen)}</span>
                             )}
                         </div>
                         {otherProfile.bio && (

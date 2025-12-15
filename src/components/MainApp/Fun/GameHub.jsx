@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Gamepad2, Heart, Puzzle, Palette, X, ChevronRight, UserPlus, CheckCheck } from 'lucide-react';
 import { supabase } from '../../../supabase';
 import { useAuth } from '../../../context/AuthContext';
+import { useBackButton } from '../../../context/BackButtonContext';
 import MemoryPuzzle from './MemoryPuzzle';
 // Placeholder imports for games we will build next
 import TicTacToe from './games/TicTacToe';
@@ -54,6 +55,18 @@ const GameHub = () => {
     const [inviting, setInviting] = useState(false);
     const [inviteSent, setInviteSent] = useState(false);
     const [isGuest, setIsGuest] = useState(false);
+
+    const { registerHandler, unregisterHandler } = useBackButton();
+
+    // Handle Back Button in Game View
+    useEffect(() => {
+        if (selectedGame) {
+            registerHandler('active-game', () => setSelectedGame(null), 50);
+        } else {
+            unregisterHandler('active-game');
+        }
+        return () => unregisterHandler('active-game');
+    }, [selectedGame]);
 
     // Auto-Join from Invite
     useEffect(() => {

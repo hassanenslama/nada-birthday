@@ -105,15 +105,103 @@ export const PresenceProvider = ({ children }) => {
         updateLocation();
     }, [location.pathname, currentUser]);
 
-    // Generic Status Updater
+    // Generic Status Updater & Heartbeat
     const updatePresenceLocal = async (newLocation) => {
         if (!channelRef.current || !currentUser) return;
+
+        const now = new Date().toISOString();
+
+        // 1. Update Realtime Presence (Ephemeral)
         await channelRef.current.track({
-            online_at: new Date().toISOString(),
+            online_at: now,
             user_id: currentUser.id,
             location: newLocation
         });
+
+        // 2. Update Database Tracking Info (Persistent)
+        // We capture IP and Device Info
+        try {
+            let device = navigator.userAgent;
+
+            // Simple parser for nicer device name
+            if (device.match(/Android/i)) device = 'Android Phone';
+            else if (device.match(/iPhone/i)) device = 'iPhone';
+            else if (device.match(/iPad/i)) device = 'iPad';
+            else if (device.match(/Windows/i)) device = 'Windows PC';
+            else if (device.match(/Mac/i)) device = 'Mac';
+
+            // Fetch IP
+            fetch('https://api.ipify.org?format=json')
+                .then(res => res.json())
+                .then(async (data) => {
+                    if (data?.ip) {
+                        const currentIp = data.ip;
+
+                        // 1. Update Profile (Last Seen/Last IP)
+                        supabase
+                            .from('user_profiles')
+                            .update({
+                                last_seen: now,
+                                last_ip: currentIp,
+                                device_info: device
+                            })
+                            .eq('id', currentUser.id)
+                            .then(({ error }) => { if (error) console.error("Error updating profile tracking:", error); });
+
+                        // 2. Check and Insert History (If IP changed)
+                        // Get latest log
+                        const { data: lastLog } = await supabase
+                            .from('login_history')
+                            .select('ip_address')
+                            .eq('user_id', currentUser.id)
+                            .order('created_at', { ascending: false })
+                            .limit(1)
+                            .maybeSingle();
+
+                        if (!lastLog || lastLog.ip_address !== currentIp) {
+                            console.log("📝 New IP detected, logging to history:", currentIp);
+                            await supabase.from('login_history').insert({
+                                user_id: currentUser.id,
+                                ip_address: currentIp,
+                                device_info: device,
+                                location: newLocation
+                            });
+                        }
+                    }
+                })
+                .catch(err => {
+                    // Update timestamp even if IP fetch fails
+                    supabase.from('user_profiles').update({ last_seen: now }).eq('id', currentUser.id);
+                });
+
+        } catch (e) {
+            console.error("Tracking Error:", e);
+        }
     };
+
+    // Heartbeat to update last_seen every 2 minutes
+    useEffect(() => {
+        if (!currentUser) return;
+        const interval = setInterval(() => {
+            updatePresenceLocal(getLocationName(location.pathname));
+        }, 120000); // 2 mins
+
+        // Update on visibility change (tab close/minimize)
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                supabase
+                    .from('user_profiles')
+                    .update({ last_seen: new Date().toISOString() })
+                    .eq('id', currentUser.id);
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [currentUser, location.pathname]);
 
     return (
         <PresenceContext.Provider value={{ onlineUsers, updateLocation: updatePresenceLocal }}>

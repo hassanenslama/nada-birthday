@@ -123,17 +123,21 @@ const AppContent = () => {
   );
 };
 
+import { BackButtonProvider } from './context/BackButtonContext';
+
 function App() {
   return (
     <Router>
-      <AuthProvider>
-        <PresenceProvider>
-          <MusicProvider>
-            <AppContent />
-            <FloatingDisc />
-          </MusicProvider>
-        </PresenceProvider>
-      </AuthProvider>
+      <BackButtonProvider>
+        <AuthProvider>
+          <PresenceProvider>
+            <MusicProvider>
+              <AppContent />
+              <FloatingDisc />
+            </MusicProvider>
+          </PresenceProvider>
+        </AuthProvider>
+      </BackButtonProvider>
     </Router>
   );
 }

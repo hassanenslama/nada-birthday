@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
-import { LayoutDashboard, LogOut, Settings, RotateCw, AlertTriangle, Check } from 'lucide-react';
+import { LayoutDashboard, LogOut, Settings, RotateCw, AlertTriangle, Check, Shield, Smartphone, Globe, Clock, MapPin, Activity } from 'lucide-react';
+import { usePresence } from '../../context/PresenceContext';
 
 // New Modular Components
 import StatsOverview from './components/StatsOverview';
@@ -15,6 +16,7 @@ import FeelingsManager from './components/FeelingsManager';
 import NotificationsManager from './components/NotificationsManager';
 import CouponsManager from './components/CouponsManager';
 import QuizManager from './components/QuizManager';
+import UserMonitorCard from './components/UserMonitorCard';
 
 
 // Toast Component
@@ -34,6 +36,31 @@ const AdminDashboard = () => {
     const [nadaProfile, setNadaProfile] = useState(null);
     const [nadaStats, setNadaStats] = useState({ quizScore: 0, quizAnswers: {}, unlockedCount: 0 });
     const [availableUsers, setAvailableUsers] = useState([]);
+
+    // Tracking
+    const { onlineUsers } = usePresence();
+    const [allUserProfiles, setAllUserProfiles] = useState([]);
+
+    useEffect(() => {
+        // Fetch all users for tracking monitor
+        const fetchAllUsers = async () => {
+            const { data } = await supabase.from('user_profiles').select('*').order('last_seen', { ascending: false });
+            if (data) setAllUserProfiles(data);
+        };
+        fetchAllUsers();
+
+        // Realtime Listener for tracking updates
+        const channel = supabase.channel('admin_tracking_monitor')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'user_profiles' }, () => fetchAllUsers())
+            .subscribe();
+
+        return () => supabase.removeChannel(channel);
+    }, []);
+
+    const formatTime = (isoString) => {
+        if (!isoString) return 'N/A';
+        return new Date(isoString).toLocaleString('ar-EG');
+    };
 
     // UI State
     const [showLinkModal, setShowLinkModal] = useState(false);
@@ -172,8 +199,108 @@ const AdminDashboard = () => {
         }
     };
 
+    // Navigation Tabs
+    const [activeTab, setActiveTab] = useState('overview');
+
+    // Import icons for sidebar
+    const tabs = [
+        { id: 'overview', label: 'نظرة عامة', icon: Activity },
+        { id: 'gallery', label: 'الصور', icon: Globe }, // Use Image icon if available but Globe is imported
+        { id: 'wishes', label: 'الأمنيات', icon: RotateCw }, // Todo: Import better icons
+        { id: 'feelings', label: 'المشاعر', icon: Shield }, // Emotional Shield?
+        { id: 'quiz', label: 'المسابقة', icon: Settings },
+        { id: 'notifications', label: 'الإشعارات', icon: AlertTriangle },
+        { id: 'coupons', label: 'الكوبونات', icon: LayoutDashboard }, // Placeholder
+    ];
+
+    const renderContent = () => {
+        switch (activeTab) {
+            case 'overview':
+                return (
+                    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        {/* 0. Monitoring Section */}
+                        <section className="bg-[#1a1a1a] border border-white/5 rounded-3xl p-6 relative overflow-hidden group hover:border-gold/20 transition-all duration-300">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-green-500/5 rounded-full blur-[80px] -mr-32 -mt-32 pointer-events-none" />
+                            <div className="flex items-center gap-3 mb-6 relative z-10">
+                                <div className="p-3 bg-green-500/10 rounded-2xl text-green-400">
+                                    <Activity size={24} />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-bold text-white">المراقبة الحية</h2>
+                                    <p className="text-xs text-gray-500 font-mono">Real-time Activity Monitor</p>
+                                </div>
+                            </div>
+
+                            <div className="grid gap-4">
+                                {allUserProfiles.map(user => {
+                                    const isOnline = onlineUsers[user.id];
+                                    const location = isOnline ? onlineUsers[user.id].location : 'غير متصل';
+                                    return (
+                                        <UserMonitorCard
+                                            key={user.id}
+                                            user={user}
+                                            isOnline={isOnline}
+                                            location={location}
+                                        />
+                                    );
+                                })}
+                            </div>
+                        </section>
+
+                        {/* 1. Stats Section */}
+                        <section className="bg-[#1a1a1a] border border-white/5 rounded-3xl p-6">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="p-3 bg-gold/10 rounded-2xl text-gold">
+                                    <LayoutDashboard size={24} />
+                                </div>
+                                <h2 className="text-xl font-bold text-white">احصائيات سريعة</h2>
+                            </div>
+                            <StatsOverview stats={nadaStats} onViewQuizDetails={() => setShowQuizDetails(true)} />
+                        </section>
+                    </div>
+                );
+            case 'gallery':
+                return (
+                    <div className="bg-[#1a1a1a] border border-white/5 rounded-3xl p-6 min-h-[500px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <GalleryManager onToast={showToast} nadaUserId={nadaProfile?.id} />
+                    </div>
+                );
+            case 'wishes':
+                return (
+                    <div className="bg-[#1a1a1a] border border-white/5 rounded-3xl p-6 min-h-[500px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <WishManager />
+                    </div>
+                );
+            case 'feelings':
+                return (
+                    <div className="bg-[#1a1a1a] border border-white/5 rounded-3xl p-6 min-h-[500px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <FeelingsManager />
+                    </div>
+                );
+            case 'quiz':
+                return (
+                    <div className="bg-[#1a1a1a] border border-white/5 rounded-3xl p-6 min-h-[500px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <QuizManager quizData={{ score: nadaStats.quizScore, answers: nadaStats.quizAnswers }} targetUserId={nadaProfile?.id} onRefresh={loadTargetStats} onToast={showToast} />
+                    </div>
+                );
+            case 'notifications':
+                return (
+                    <div className="bg-[#1a1a1a] border border-white/5 rounded-3xl p-6 min-h-[500px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <NotificationsManager onToast={showToast} />
+                    </div>
+                );
+            case 'coupons':
+                return (
+                    <div className="bg-[#1a1a1a] border border-white/5 rounded-3xl p-6 min-h-[500px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <CouponsManager onToast={showToast} />
+                    </div>
+                );
+            default: return null;
+        }
+    };
+
     return (
-        <div className="min-h-screen bg-[#0a0a0a] text-white font-cairo flex flex-col relative overflow-x-hidden">
+        <div className="min-h-screen bg-[#0a0a0a] text-white font-cairo flex flex-col relative overflow-hidden">
             {/* Background Ambience */}
             <div className="fixed inset-0 pointer-events-none">
                 <div className="absolute top-0 left-1/4 w-96 h-96 bg-gold/5 rounded-full blur-[100px]" />
@@ -183,156 +310,67 @@ const AdminDashboard = () => {
             <AnimatePresence>{toast && <Toast {...toast} />}</AnimatePresence>
 
             {/* Modals */}
-            <LinkUserModal
-                isOpen={showLinkModal}
-                users={availableUsers}
-                onSelect={handleLinkUser}
-                onRefresh={fetchUsersList}
-                isBlocking={forceBlockingLink}
-            />
-            <QuizDetailsModal
-                isOpen={showQuizDetails}
-                onClose={() => setShowQuizDetails(false)}
-                answers={nadaStats.quizAnswers}
-            />
-            <ProfileModal
-                isOpen={showProfileModal}
-                onClose={() => setShowProfileModal(false)}
-                originalName={adminConfig.name}
-                currentNickname={adminConfig.nickname}
-                currentImage={adminConfig.image}
-                isMale={adminConfig.isMale}
-                onSaveNickname={handleSaveAdminName}
-            />
+            <LinkUserModal isOpen={showLinkModal} users={availableUsers} onSelect={handleLinkUser} onRefresh={fetchUsersList} isBlocking={forceBlockingLink} />
+            <QuizDetailsModal isOpen={showQuizDetails} onClose={() => setShowQuizDetails(false)} answers={nadaStats.quizAnswers} />
+            <ProfileModal isOpen={showProfileModal} onClose={() => setShowProfileModal(false)} originalName={adminConfig.name} currentNickname={adminConfig.nickname} currentImage={adminConfig.image} isMale={adminConfig.isMale} onSaveNickname={handleSaveAdminName} />
 
             {/* Header */}
-            <header className="sticky top-0 z-50 bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-white/5 px-4 md:px-8 h-20 flex items-center justify-between">
+            <header className="sticky top-0 z-50 bg-[#0a0a0a]/90 backdrop-blur-xl border-b border-white/5 px-4 md:px-8 h-20 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <div className="w-10 h-10 bg-gradient-to-br from-gold to-yellow-700 rounded-xl flex items-center justify-center text-black shadow-lg shadow-gold/10">
                         <LayoutDashboard size={20} />
                     </div>
                     <div>
                         <h1 className="font-bold text-lg leading-tight">لوحة التحكم</h1>
-                        <p className="text-xs text-gray-500 font-mono tracking-wider">PRO EDITION</p>
+                        <p className="text-xs text-gray-500 font-mono tracking-wider">PRO v2.0</p>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => setShowProfileModal(true)}
-                        className="flex items-center gap-3 bg-[#1a1a1a] hover:bg-[#222] border border-white/5 rounded-full p-1 pr-4 transition group"
-                    >
+                    <button onClick={() => setShowProfileModal(true)} className="flex items-center gap-3 bg-[#1a1a1a] hover:bg-[#222] border border-white/5 rounded-full p-1 pr-4 transition group">
                         <span className="text-sm font-bold group-hover:text-gold transition">{adminConfig.nickname}</span>
-
-
                         <div className="w-10 h-10 rounded-full bg-gray-800 overflow-hidden border border-gold/20 flex items-center justify-center relative shadow-lg">
                             {adminConfig.image ? <img src={adminConfig.image} className="w-full h-full object-cover" /> : (adminConfig.isMale ? '👑' : '👸')}
                             <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-[#1a1a1a] rounded-full"></div>
                         </div>
                     </button>
-
                     <div className="h-8 w-[1px] bg-white/10 mx-1" />
-
-                    <button
-                        onClick={() => { fetchUsersList(); setShowLinkModal(true); }}
-                        className="p-2.5 rounded-xl bg-[#1a1a1a] text-gray-400 hover:text-gold hover:bg-gold/10 transition border border-white/5"
-                        title="ربط الحساب"
-                    >
-                        <Settings size={20} />
-                    </button>
-
-                    <button
-                        onClick={logout}
-                        className="p-2.5 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 transition border border-red-500/20"
-                        title="تسجيل خروج"
-                    >
-                        <LogOut size={20} />
-                    </button>
+                    <button onClick={() => { fetchUsersList(); setShowLinkModal(true); }} className="p-2.5 rounded-xl bg-[#1a1a1a] text-gray-400 hover:text-gold hover:bg-gold/10 transition border border-white/5"><Settings size={20} /></button>
+                    <button onClick={logout} className="p-2.5 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 transition border border-red-500/20"><LogOut size={20} /></button>
                 </div>
-            </header >
+            </header>
 
-            {/* Main Content */}
-            < main className="flex-1 container mx-auto px-4 py-8 space-y-8 max-w-7xl z-10" >
+            <div className="flex flex-1 overflow-hidden">
+                {/* Check if mobile or desktop - for now simple Responsive Layout */}
+                {/* Sidebar (Desktop) / Horizontal Scroll (Mobile) */}
+                <aside className="w-full md:w-64 bg-[#0f0f0f] border-r border-white/5 flex flex-row md:flex-col overflow-x-auto md:overflow-visible z-40 fixed md:relative bottom-0 md:bottom-auto h-16 md:h-auto border-t md:border-t-0 p-2 md:p-4 gap-2">
+                    {tabs.map(tab => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-300 min-w-[max-content] md:min-w-0 ${isActive ? 'bg-gold text-black shadow-[0_0_15px_rgba(197,160,89,0.4)] font-bold' : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'}`}
+                            >
+                                <Icon size={20} className={isActive ? 'scale-110' : ''} />
+                                <span className="text-sm">{tab.label}</span>
+                                {isActive && <motion.div layoutId="activeTabIndicator" className="ml-auto w-1.5 h-1.5 bg-white rounded-full hidden md:block" />}
+                            </button>
+                        );
+                    })}
+                </aside>
 
-                {/* 1. Stats Section */}
-                < section >
-                    <div className="flex items-center gap-2 mb-4 px-2">
-                        <div className="w-1 h-6 bg-gold rounded-full" />
-                        <h2 className="text-lg font-bold text-gray-200">نظرة عامة</h2>
-                    </div>
-                    <StatsOverview
-                        stats={nadaStats}
-                        onViewQuizDetails={() => setShowQuizDetails(true)}
-                    />
-                </section >
+                {/* Main Content Area */}
+                <main className="flex-1 overflow-y-auto p-4 pb-24 md:p-8 md:pb-8 custom-scrollbar relative">
+                    {renderContent()}
 
-                {/* 2. Gallery Management Section (NEW) */}
-                <section>
-                    <div className="flex items-center gap-2 mb-4 px-2">
-                        <div className="w-1 h-6 bg-purple-500 rounded-full" />
-                        <h2 className="text-lg font-bold text-gray-200">إدارة الصور والألبومات (Gallery)</h2>
-                    </div>
-                    {/* Debug log */}
-                    {console.log("🎨 Rendering GalleryManager with nadaUserId:", nadaProfile?.id)}
-                    <GalleryManager onToast={showToast} nadaUserId={nadaProfile?.id} />
-                </section>
-
-                {/* 3. Wish Management Section (Bucket List) */}
-                <section>
-                    <div className="flex items-center gap-2 mb-4 px-2">
-                        <div className="w-1 h-6 bg-gold rounded-full" />
-                        <h2 className="text-lg font-bold text-gray-200">إدارة الأمنيات (Bucket List)</h2>
-                    </div>
-                    <WishManager />
-                </section>
-
-                {/* 4. Feelings Management (New) */}
-                <section>
-                    <div className="flex items-center gap-2 mb-4 px-2">
-                        <div className="w-1 h-6 bg-pink-500 rounded-full" />
-                        <h2 className="text-lg font-bold text-gray-200">إدارة المشاعر (Feelings)</h2>
-                    </div>
-                    <FeelingsManager />
-                </section>
-
-                {/* 5. Quiz Management (NEW) */}
-                <section>
-                    <div className="flex items-center gap-2 mb-4 px-2">
-                        <div className="w-1 h-6 bg-yellow-500 rounded-full" />
-                        <h2 className="text-lg font-bold text-gray-200">إدارة المسابقة (Quiz Reset)</h2>
-                    </div>
-                    <QuizManager
-                        quizData={{ score: nadaStats.quizScore, answers: nadaStats.quizAnswers }}
-                        targetUserId={nadaProfile?.id}
-                        onRefresh={loadTargetStats}
-                        onToast={showToast}
-                    />
-                </section>
-
-                {/* 6. Notifications Management */}
-                <section>
-                    <div className="flex items-center gap-2 mb-4 px-2">
-                        <div className="w-1 h-6 bg-blue-500 rounded-full" />
-                        <h2 className="text-lg font-bold text-gray-200">إدارة الإشعارات (Notifications)</h2>
-                    </div>
-                    <NotificationsManager onToast={showToast} />
-                </section>
-
-                {/* 6. Coupons Management (New) */}
-                <section>
-                    <div className="flex items-center gap-2 mb-4 px-2">
-                        <div className="w-1 h-6 bg-gradient-to-t from-pink-500 to-purple-500 rounded-full" />
-                        <h2 className="text-lg font-bold text-gray-200">إدارة الكوبونات (Coupons)</h2>
-                    </div>
-                    <CouponsManager onToast={showToast} />
-                </section>
-
-                {/* Footer Info */}
-                < footer className="text-center text-gray-600 text-xs py-8 font-mono" >
-                    Admin Dashboard v2.0 • Love OS
-                </footer >
-            </main >
-        </div >
+                    <footer className="mt-8 text-center text-gray-600 text-xs font-mono">
+                        Admin Dashboard v2.0 • Love OS • Secure Connection
+                    </footer>
+                </main>
+            </div>
+        </div>
     );
 };
 
