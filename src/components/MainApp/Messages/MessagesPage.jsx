@@ -820,6 +820,17 @@ const MessagesPage = () => {
         }, 2000);
     };
 
+    // Emoji Back Button Support
+    useEffect(() => {
+        const handleHashChange = () => {
+            const hash = window.location.hash.replace('#', '');
+            setShowEmojis(hash === 'emoji');
+        };
+
+        window.addEventListener('hashchange', handleHashChange);
+        return () => window.removeEventListener('hashchange', handleHashChange);
+    }, []);
+
     // ... (Keep existing loadMessages but add logic to mark read)
     // Modified Load Messages (simplified integration)
     useEffect(() => {
@@ -1481,7 +1492,7 @@ const MessagesPage = () => {
                                 <button type="button" onClick={() => fileInputRef.current?.click()} className="p-3 text-gold bg-[#1a1a1a] rounded-full hover:bg-gold/10 flex-none self-end"><Paperclip size={20} /></button>
                                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={e => setSelectedFile(e.target.files[0])} />
                                 <div className="relative flex-1 bg-[#1a1a1a] rounded-2xl flex items-center border border-white/5 px-1 min-h-[50px] max-h-32">
-                                    <button type="button" onClick={() => { document.activeElement.blur(); setShowEmojis(!showEmojis); }} className="p-2 text-gray-400 hover:text-white self-end"><Smile size={20} /></button>
+                                    <button type="button" onClick={() => { document.activeElement.blur(); window.location.hash = 'emoji'; }} className="p-2 text-gray-400 hover:text-white self-end"><Smile size={20} /></button>
                                     <textarea
                                         ref={textareaRef}
                                         value={newMessage}
@@ -1506,7 +1517,7 @@ const MessagesPage = () => {
                                                 {/* Invisible Backdrop to close on outside click */}
                                                 <div
                                                     className="fixed inset-0 z-[95] cursor-default"
-                                                    onClick={(e) => { e.stopPropagation(); setShowEmojis(false); }}
+                                                    onClick={(e) => { e.stopPropagation(); window.history.back(); }}
                                                 />
                                                 <motion.div
                                                     initial={{ opacity: 0, scale: 0.9, y: 10 }}

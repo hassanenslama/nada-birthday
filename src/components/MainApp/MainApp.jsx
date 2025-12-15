@@ -20,8 +20,8 @@ const MainApp = () => {
     const [activeTab, setActiveTab] = useState(() => {
         // 1. Priority: Pending Game Invite
         if (localStorage.getItem('pending_game')) return 'fun';
-        // 2. Secondary: Last visited tab (Persistence)
-        return localStorage.getItem('nav_active_tab') || 'home';
+        // 2. Default: Home (Persistence disabled to ensure fresh start)
+        return 'home';
     });
     const { updateLocation } = usePresence();
 
@@ -67,32 +67,9 @@ const MainApp = () => {
         return () => window.removeEventListener('hashchange', handleHashChange);
     }, []);
 
-    // Custom Tab Switcher to manage History Stack
-    const handleTabChange = (newTab) => {
-        if (newTab === activeTab) return;
-
-        if (newTab === 'home') {
-            // Going home? Go back if we are 1 step away, otherwise push/replace
-            // For simplicity in this PWA structure, we just push '#home' or empty
-            window.location.hash = '';
-        } else {
-            // Going to a feature tab?
-            // If we are currently at home, PUSH.
-            // If we are already at another tab, REPLACE (so Back always goes to Home).
-            if (activeTab === 'home' || activeTab === '') {
-                window.location.hash = newTab;
-            } else {
-                window.history.replaceState(null, '', '#' + newTab);
-                // Manually trigger state update since replaceState doesn't fire hashchange
-                setActiveTab(newTab);
-            }
-        }
-    };
-
-    // Sync Presence & Persistence
+    // Sync Presence
     useEffect(() => {
         updateLocation(getTabNameAr(activeTab));
-        localStorage.setItem('nav_active_tab', activeTab);
     }, [activeTab]);
 
     const renderContent = () => {
@@ -109,6 +86,31 @@ const MainApp = () => {
         }
     };
 
+    // Scroll Ref for Main Content
+    const mainContentRef = React.useRef(null);
+
+    // Custom Tab Switcher to manage History Stack & Scroll
+    const handleTabChange = (newTab) => {
+        if (newTab === activeTab) {
+            // If clicking same tab (except messages), scroll to top
+            if (activeTab !== 'messages' && mainContentRef.current) {
+                mainContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+            return;
+        }
+
+        if (newTab === 'home') {
+            window.location.hash = '';
+        } else {
+            if (activeTab === 'home' || activeTab === '') {
+                window.location.hash = newTab;
+            } else {
+                window.history.replaceState(null, '', '#' + newTab);
+                setActiveTab(newTab);
+            }
+        }
+    };
+
     return (
         <div className="fixed inset-0 bg-charcoal text-white overflow-hidden flex flex-col">
             {/* Notifications Bell - Top Right */}
@@ -117,7 +119,7 @@ const MainApp = () => {
             </div>
 
             {/* Main Content Area */}
-            <div className="flex-1 overflow-y-auto pb-20 custom-scrollbar">
+            <div ref={mainContentRef} className="flex-1 overflow-y-auto pb-20 custom-scrollbar">
                 {renderContent()}
             </div>
 
