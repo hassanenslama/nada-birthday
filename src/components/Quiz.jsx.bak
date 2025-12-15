@@ -1,0 +1,393 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import VideoEngine from './Quiz/VideoEngine';
+import GameUI from './Quiz/GameUI';
+import EffectsController from './Quiz/EffectsController';
+import { QUESTIONS } from '../data/questions';
+
+const STORAGE_KEY = 'nada_quiz_progress';
+
+const Quiz = ({ onComplete }) => {
+    const [started, setStarted] = useState(false);
+    const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+    const [phase, setPhase] = useState('question');
+    const [totalScore, setTotalScore] = useState(0);
+    const [currentEffect, setCurrentEffect] = useState(null);
+    const [answersHistory, setAnswersHistory] = useState({});
+    const [retryCount, setRetryCount] = useState(0); // For forcing video remount on retry
+
+    const audioRef = useRef(null);
+    const videoEndHandled = useRef(false); // Prevent double-handling of video end
+
+    const currentQuestion = QUESTIONS[currentQuestionIndex];
+    const maxScore = QUESTIONS.reduce((sum, q) => sum + q.points.correct, 0);
+    const isLastQuestion = currentQuestionIndex === QUESTIONS.length - 1;
+
+    // Reset videoEndHandled when question changes
+    useEffect(() => {
+        videoEndHandled.current = false;
+        console.log(`📍 Question ${currentQuestionIndex + 1} loaded, phase: ${phase}`);
+    }, [currentQuestionIndex]);
+
+    // Load saved progress on mount
+    useEffect(() => {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            try {
+                const { questionIndex, score, history } = JSON.parse(saved);
+                setCurrentQuestionIndex(questionIndex);
+                setTotalScore(score);
+                setAnswersHistory(history || {});
+                setStarted(true);
+                setPhase('question');
+            } catch (e) {
+                console.error('Failed to load progress:', e);
+            }
+        }
+    }, []);
+
+    // Save progress
+    useEffect(() => {
+        if (started && phase !== 'celebration' && phase !== 'message') {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                questionIndex: currentQuestionIndex,
+                score: totalScore,
+                history: answersHistory
+            }));
+        }
+    }, [currentQuestionIndex, totalScore, answersHistory, started, phase]);
+
+    const handleStart = () => {
+        setStarted(true);
+        videoEndHandled.current = false;
+        localStorage.removeItem(STORAGE_KEY);
+    };
+
+    const handleRestart = () => {
+        localStorage.removeItem(STORAGE_KEY);
+        setCurrentQuestionIndex(0);
+        setTotalScore(0);
+        setAnswersHistory({});
+        setPhase('question');
+        setCurrentEffect(null);
+        videoEndHandled.current = false;
+    };
+
+    const handleRetry = () => {
+        setPhase('question');
+        setCurrentEffect(null);
+        videoEndHandled.current = false;
+        setRetryCount(prev => prev + 1); // Force video remount
+    };
+
+    const handlePrevious = () => {
+        if (currentQuestionIndex > 0) {
+            const currentQuestionId = currentQuestionIndex;
+            if (answersHistory[currentQuestionId]) {
+                const oldAnswer = answersHistory[currentQuestionId];
+                const oldPoints = QUESTIONS[currentQuestionId].points[oldAnswer];
+                setTotalScore(prev => prev - oldPoints);
+
+                setAnswersHistory(prev => {
+                    const newHistory = { ...prev };
+                    delete newHistory[currentQuestionId];
+                    return newHistory;
+                });
+            }
+
+            setCurrentQuestionIndex(prev => prev - 1);
+            setPhase('question');
+            setCurrentEffect(null);
+            videoEndHandled.current = false;
+            setRetryCount(prev => prev + 1); // Force video remount
+        }
+    };
+
+    const handleQuestionVideoEnd = () => {
+        // Only handle once per video
+        if (videoEndHandled.current) {
+            console.log('⚠️ Video end already handled, ignoring');
+            return;
+        }
+
+        videoEndHandled.current = true;
+        console.log('🎬 Video ended, showing buttons');
+        setPhase('buttons');
+    };
+
+    const handleAnswer = (type) => {
+        const questionId = currentQuestionIndex;
+        const newPoints = currentQuestion.points[type];
+
+        // If this question was already answered, remove old points first
+        if (answersHistory[questionId]) {
+            const oldAnswer = answersHistory[questionId];
+            const oldPoints = currentQuestion.points[oldAnswer];
+            setTotalScore(prev => prev - oldPoints);
+        }
+
+        // Add new points
+        setTotalScore(prev => prev + newPoints);
+
+        // Save answer to history
+        setAnswersHistory(prev => ({
+            ...prev,
+            [questionId]: type
+        }));
+
+        // Play sound
+        try {
+            if (audioRef.current) {
+                audioRef.current.src = currentQuestion.sounds[type];
+                audioRef.current.play().catch(console.error);
+            }
+        } catch (err) {
+            console.error(err);
+        }
+
+        // Show effect briefly
+        setCurrentEffect(type);
+
+        // After short delay, move to next question or finish
+        setTimeout(() => {
+            setCurrentEffect(null);
+
+            if (isLastQuestion) {
+                setPhase('celebration');
+                localStorage.removeItem(STORAGE_KEY);
+            } else {
+                setCurrentQuestionIndex(prev => prev + 1);
+                setPhase('question');
+                videoEndHandled.current = false;
+            }
+        }, 1500);
+    };
+
+    const handleCelebrationComplete = () => {
+        setPhase('message');
+    };
+
+    const handleMessageVideoEnd = () => {
+        onComplete({ score: totalScore, maxScore });
+    };
+
+    const getCurrentVideo = () => {
+        if (phase === 'message') {
+            return '/videos/massage.mp4';
+        }
+        return currentQuestion.questionVideo;
+    };
+
+    if (!started) {
+        return (
+            <div className="fixed inset-0 w-full h-full bg-gradient-to-br from-black via-maroon/30 to-black flex flex-col items-center justify-center z-50 overflow-hidden">
+                {/* Animated background particles */}
+                <div className="absolute inset-0 opacity-20">
+                    {[...Array(20)].map((_, i) => (
+                        <motion.div
+                            key={i}
+                            className="absolute w-1 h-1 bg-gold rounded-full"
+                            style={{
+                                left: `${Math.random() * 100}%`,
+                                top: `${Math.random() * 100}%`,
+                            }}
+                            animate={{
+                                y: [-20, 20],
+                                opacity: [0.2, 0.8, 0.2],
+                                scale: [1, 1.5, 1]
+                            }}
+                            transition={{
+                                duration: 3 + Math.random() * 2,
+                                repeat: Infinity,
+                                delay: Math.random() * 2
+                            }}
+                        />
+                    ))}
+                </div>
+
+                {/* Main content */}
+                <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.8, ease: "easeOut" }}
+                    className="relative text-center px-4"
+                >
+                    {/* Title with glow */}
+                    <div className="relative mb-12">
+                        <div className="absolute inset-0 blur-3xl bg-gold/30 animate-pulse" />
+                        <h1 className="relative text-5xl md:text-7xl lg:text-8xl text-gold font-signature drop-shadow-[0_0_30px_rgba(197,160,89,0.9)] tracking-wide">
+                            من سيربح القلب؟
+                        </h1>
+                        <motion.div
+                            animate={{ scale: [1, 1.1, 1] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                            className="mt-4 text-2xl md:text-3xl text-gold/80 font-cairo"
+                        >
+                            ❤️
+                        </motion.div>
+                    </div>
+
+                    {/* Start button */}
+                    <motion.button
+                        initial={{ y: 20, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ delay: 0.4, duration: 0.6 }}
+                        whileHover={{
+                            scale: 1.05,
+                            boxShadow: "0 0 40px rgba(197,160,89,0.6)"
+                        }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={handleStart}
+                        className="group relative px-12 py-6 bg-gradient-to-r from-gold via-yellow-500 to-gold text-black font-bold font-cairo text-2xl md:text-3xl rounded-full overflow-hidden shadow-2xl"
+                    >
+                        {/* Shimmer effect */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000" />
+
+                        <span className="relative z-10 flex items-center gap-3">
+                            <span>ابدأ المسابقة</span>
+                            <motion.span
+                                animate={{ x: [0, 5, 0] }}
+                                transition={{ duration: 1, repeat: Infinity }}
+                            >
+                                🎬
+                            </motion.span>
+                        </span>
+                    </motion.button>
+                </motion.div>
+            </div>
+        );
+    }
+
+    // Celebration Screen
+    if (phase === 'celebration') {
+        return (
+            <div className="fixed inset-0 w-full h-full bg-gradient-to-br from-maroon via-black to-charcoal flex flex-col items-center justify-center z-50 overflow-hidden">
+                <EffectsController effect="correct" onComplete={() => { }} />
+
+                <motion.div
+                    initial={{ scale: 0, rotate: -180 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ type: "spring", duration: 1 }}
+                    className="text-center px-4"
+                >
+                    <h1 className="text-5xl md:text-7xl font-signature text-gold mb-8 drop-shadow-[0_0_30px_rgba(197,160,89,0.9)]">
+                        مبروك! 🎉
+                    </h1>
+
+                    <div className="bg-black/60 backdrop-blur-xl border-2 border-gold/50 rounded-3xl p-8 md:p-12 mb-8">
+                        <p className="text-2xl md:text-3xl text-white font-cairo mb-4">نتيجتك النهائية</p>
+                        <p className="text-6xl md:text-8xl font-bold text-gold font-cairo">
+                            {totalScore} <span className="text-3xl md:text-4xl text-gray-400">/ {maxScore}</span>
+                        </p>
+                    </div>
+
+                    <motion.button
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 1 }}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={handleCelebrationComplete}
+                        className="px-8 py-4 bg-gold text-charcoal font-cairo font-bold text-xl rounded-full hover:bg-gold/90 transition-colors shadow-[0_0_30px_rgba(197,160,89,0.5)]"
+                    >
+                        استمر للرسالة النهائية ❤️
+                    </motion.button>
+                </motion.div>
+            </div>
+        );
+    }
+
+    // Message Video Phase
+    if (phase === 'message') {
+        return (
+            <div className="fixed inset-0 w-full h-full bg-black">
+                <VideoEngine
+                    key="message-video"
+                    videoSrc="/videos/massage.mp4"
+                    onVideoEnd={handleMessageVideoEnd}
+                    autoPlay={true}
+                    className=""
+                />
+            </div>
+        );
+    }
+
+    // Normal Quiz Flow
+    return (
+        <div className="fixed inset-0 w-full h-full bg-charcoal overflow-hidden font-cairo">
+
+            {/* VIDEO LAYER - Key includes retryCount to force remount on retry */}
+            <VideoEngine
+                key={`question-${currentQuestionIndex}-retry-${retryCount}`}
+                videoSrc={getCurrentVideo()}
+                onVideoEnd={phase === 'question' ? handleQuestionVideoEnd : () => { }}
+                autoPlay={phase === 'question'}
+                className={`transition-all duration-1000 ${phase === 'buttons' ? 'blur-md scale-105 brightness-50' : ''}`}
+            />
+
+            {/* BLUR OVERLAY */}
+            <div className={`absolute inset-0 bg-black/40 transition-opacity duration-1000 pointer-events-none ${phase === 'buttons' ? 'opacity-100' : 'opacity-0'}`} />
+
+            {/* SCORE & RESTART */}
+            <div className="fixed top-4 right-4 md:top-6 md:right-6 z-30 flex flex-col gap-3">
+                {/* Score */}
+                <div className="bg-gradient-to-br from-black/70 to-maroon/50 backdrop-blur-xl border-2 border-gold/40 rounded-2xl px-4 py-3 md:px-6 md:py-4 shadow-[0_0_30px_rgba(197,160,89,0.3)] hover:scale-105 transition-transform">
+                    <div className="flex items-center gap-2 md:gap-3">
+                        <span className="text-2xl md:text-3xl animate-pulse">💎</span>
+                        <div className="text-right">
+                            <p className="text-xs md:text-sm text-gold/70 font-cairo">النقاط</p>
+                            <p dir="rtl" className="text-xl md:text-3xl font-bold text-gold font-cairo">
+                                {totalScore} <span className="text-sm md:text-base text-gray-400">/ {maxScore}</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Restart Button */}
+                <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleRestart}
+                    className="bg-red-900/70 backdrop-blur-md border border-red-500/40 rounded-xl px-4 py-2 flex items-center gap-2 hover:bg-red-800/80 transition-colors shadow-lg"
+                >
+                    <svg className="w-4 h-4 text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span className="text-xs md:text-sm text-red-300 font-cairo font-bold">إعادة البداية</span>
+                </motion.button>
+            </div>
+
+            {/* BUTTONS UI */}
+            <AnimatePresence>
+                {phase === 'buttons' && (
+                    <motion.div
+                        key="buttons"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                    >
+                        <GameUI
+                            onAnswer={handleAnswer}
+                            currentQuestion={currentQuestionIndex + 1}
+                            totalQuestions={QUESTIONS.length}
+                            onRetry={handleRetry}
+                            onPrevious={currentQuestionIndex > 0 ? handlePrevious : null}
+                        />
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* EFFECTS */}
+            {currentEffect && (
+                <EffectsController
+                    effect={currentEffect}
+                    onComplete={() => { }}
+                />
+            )}
+
+            <audio ref={audioRef} />
+        </div>
+    );
+};
+
+export default Quiz;

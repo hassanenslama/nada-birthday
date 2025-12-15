@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, Sparkles } from 'lucide-react';
 import { TARGET_DATE } from '../config';
+import PrankButton from './PrankButton';
+import CharacterReveal from './CharacterReveal';
 
 const WHISPERS = [
     "كل ثانية بتعدي.. بتزيد غلاوتك ❤️",
@@ -18,11 +20,9 @@ const WHISPERS = [
 const Teaser = ({ onUnlock }) => {
     const [timeLeft, setTimeLeft] = useState(calculateTimeLeft());
     const [whisperIndex, setWhisperIndex] = useState(0);
+    const [direction, setDirection] = useState('ltr'); // Track animation direction
 
-    // Prank Button State
-    const [btnFixed, setBtnFixed] = useState(false);
-    const [btnCoords, setBtnCoords] = useState({ x: 0, y: 0 });
-    const btnRef = useRef(null);
+    // Prank Button State moved to PrankButton component
 
     function calculateTimeLeft() {
         const difference = +TARGET_DATE - +new Date();
@@ -41,45 +41,38 @@ const Teaser = ({ onUnlock }) => {
         return timeLeft;
     }
 
+    // Optimized timer with RAF to prevent stuttering
     useEffect(() => {
-        const timer = setTimeout(() => {
-            const newTime = calculateTimeLeft();
-            setTimeLeft(newTime);
-            if (!newTime) {
-                onUnlock();
+        let rafId;
+        let lastUpdate = Date.now();
+
+        const tick = () => {
+            const now = Date.now();
+            if (now - lastUpdate >= 1000) {
+                lastUpdate = now;
+                const newTime = calculateTimeLeft();
+                setTimeLeft(newTime);
+                if (!newTime) {
+                    onUnlock();
+                    return;
+                }
             }
-        }, 1000);
-        return () => clearTimeout(timer);
-    });
+            rafId = requestAnimationFrame(tick);
+        };
+
+        rafId = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(rafId);
+    }, [onUnlock]);
 
     useEffect(() => {
         const interval = setInterval(() => {
             setWhisperIndex((prev) => (prev + 1) % WHISPERS.length);
+            setDirection(prev => prev === 'ltr' ? 'rtl' : 'ltr'); // Alternate direction
         }, 4000);
         return () => clearInterval(interval);
     }, []);
 
-    const moveButton = () => {
-        if (!btnRef.current) return;
-        const btnRect = btnRef.current.getBoundingClientRect();
-        const btnW = btnRect.width;
-        const btnH = btnRect.height;
-        const padding = 20;
-
-        const minX = padding;
-        const maxX = window.innerWidth - btnW - padding;
-        const minY = padding;
-        const maxY = window.innerHeight - btnH - padding;
-
-        const safeMaxX = Math.max(minX, maxX);
-        const safeMaxY = Math.max(minY, maxY);
-
-        const randomX = Math.random() * (safeMaxX - minX) + minX;
-        const randomY = Math.random() * (safeMaxY - minY) + minY;
-
-        setBtnFixed(true);
-        setBtnCoords({ x: randomX, y: randomY });
-    };
+    // moveButton logic moved to PrankButton component
 
     if (!timeLeft) return null;
 
@@ -136,44 +129,22 @@ const Teaser = ({ onUnlock }) => {
                     <FlipUnit value={timeLeft.seconds} label="ثواني" />
                 </div>
 
-                {/* Elegant Whispers */}
-                <div className="h-20 flex items-center justify-center w-full min-w-[300px] z-20">
+                {/* Character-by-Character Reveal Animation */}
+                <div className="h-24 flex items-center justify-center w-full min-w-[300px] max-w-[90vw] z-20 overflow-hidden">
                     <AnimatePresence mode='wait'>
-                        <motion.p
+                        <CharacterReveal
                             key={whisperIndex}
-                            initial={{ opacity: 0, y: 15, filter: "blur(8px)" }}
-                            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                            exit={{ opacity: 0, y: -15, filter: "blur(8px)" }}
-                            className="text-xl md:text-3xl font-bold text-[#F7E7CE] tracking-wide font-cairo leading-relaxed drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
-                        >
-                            {WHISPERS[whisperIndex]}
-                        </motion.p>
+                            text={WHISPERS[whisperIndex]}
+                            direction={direction}
+                        />
                     </AnimatePresence>
                 </div>
 
                 <div className="h-20 w-full" aria-hidden="true"></div>
             </div>
 
-            {/* 4. Button */}
-            <motion.button
-                ref={btnRef}
-                style={
-                    btnFixed
-                        ? { position: 'fixed', left: 0, top: 0, zIndex: 9999 }
-                        : { position: 'absolute', bottom: '15%', zIndex: 50 }
-                }
-                animate={
-                    btnFixed
-                        ? { x: btnCoords.x, y: btnCoords.y }
-                        : { y: 0 }
-                }
-                transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                onMouseEnter={moveButton}
-                onClick={moveButton}
-                className="px-10 py-3 md:px-14 md:py-5 bg-gradient-to-r from-[#800020] to-[#4a0412] text-[#D4AF37] font-bold rounded-full border border-[#D4AF37]/40 shadow-[0_0_30px_rgba(128,0,32,0.6)] hover:shadow-[0_0_60px_rgba(212,175,55,0.6)] text-lg md:text-2xl cursor-pointer whitespace-nowrap font-cairo select-none tracking-widest uppercase"
-            >
-                افتحي الهدية
-            </motion.button>
+            {/* 4. Optimized Prank Button (Isolated Component) */}
+            <PrankButton />
 
             {/* Footer */}
             <div className="absolute bottom-6 opacity-80 text-lg md:text-xl tracking-[0.1em] text-[#D4AF37] font-signature z-0">
@@ -192,8 +163,8 @@ function usePrevious(value) {
     return ref.current;
 }
 
-// Helper for rendering a half-card (Top or Bottom) without any transparency
-const StaticHalf = ({ value, side, className = "" }) => {
+// MEMOIZED StaticHalf - Prevents unnecessary re-renders
+const StaticHalf = React.memo(({ value, side, className = "" }) => {
     const isTop = side === 'top';
     return (
         <div
@@ -206,14 +177,13 @@ const StaticHalf = ({ value, side, className = "" }) => {
                     {value}
                 </span>
             </div>
-
-            {/* Inner shadow for depth - kept subtle */}
             <div className={`absolute inset-0 z-20 pointer-events-none ${isTop ? 'bg-gradient-to-b from-black/40 to-transparent' : 'bg-gradient-to-t from-black/40 to-transparent'}`}></div>
         </div>
     );
-};
+});
 
-const FlipUnit = ({ value, label }) => {
+// MEMOIZED FlipUnit - Only re-renders when value changes
+const FlipUnit = React.memo(({ value, label }) => {
     const paddedValue = String(value).padStart(2, '0');
     const prevValue = usePrevious(value);
     const paddedPrev = String(prevValue !== undefined ? prevValue : value).padStart(2, '0');
@@ -284,6 +254,6 @@ const FlipUnit = ({ value, label }) => {
             </span>
         </div>
     );
-};
+});
 
 export default Teaser;
