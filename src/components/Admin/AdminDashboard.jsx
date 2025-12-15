@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
-import { LayoutDashboard, LogOut, Settings, RotateCw, AlertTriangle, Check, Shield, Smartphone, Globe, Clock, MapPin, Activity } from 'lucide-react';
+import { LayoutDashboard, LogOut, Settings, RotateCw, AlertTriangle, Check, Shield, Smartphone, Globe, Clock, MapPin, Activity, Home } from 'lucide-react';
 import { usePresence } from '../../context/PresenceContext';
 
 // New Modular Components
@@ -326,16 +326,19 @@ const AdminDashboard = () => {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 md:gap-3">
+                    <button onClick={() => window.location.href = '/'} className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 transition border border-blue-500/20" title="العودة للرئيسية">
+                        <Home size={20} />
+                    </button>
                     <button onClick={() => setShowProfileModal(true)} className="flex items-center gap-3 bg-[#1a1a1a] hover:bg-[#222] border border-white/5 rounded-full p-1 pr-4 transition group">
-                        <span className="text-sm font-bold group-hover:text-gold transition">{adminConfig.nickname}</span>
+                        <span className="text-sm font-bold group-hover:text-gold transition hidden md:block">{adminConfig.nickname}</span>
                         <div className="w-10 h-10 rounded-full bg-gray-800 overflow-hidden border border-gold/20 flex items-center justify-center relative shadow-lg">
                             {adminConfig.image ? <img src={adminConfig.image} className="w-full h-full object-cover" /> : (adminConfig.isMale ? '👑' : '👸')}
                             <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-[#1a1a1a] rounded-full"></div>
                         </div>
                     </button>
-                    <div className="h-8 w-[1px] bg-white/10 mx-1" />
-                    <button onClick={() => { fetchUsersList(); setShowLinkModal(true); }} className="p-2.5 rounded-xl bg-[#1a1a1a] text-gray-400 hover:text-gold hover:bg-gold/10 transition border border-white/5"><Settings size={20} /></button>
+                    <div className="h-8 w-[1px] bg-white/10 mx-1 hidden md:block" />
+                    <button onClick={() => { fetchUsersList(); setShowLinkModal(true); }} className="p-2.5 rounded-xl bg-[#1a1a1a] text-gray-400 hover:text-gold hover:bg-gold/10 transition border border-white/5 hidden md:block"><Settings size={20} /></button>
                     <button onClick={logout} className="p-2.5 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 transition border border-red-500/20"><LogOut size={20} /></button>
                 </div>
             </header>
