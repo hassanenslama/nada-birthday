@@ -47,12 +47,15 @@ const FloatingDisc = () => {
     return (
         <>
             {/* The Floating Disc */}
+            {/* The Floating Disc */}
             <motion.div
                 className="fixed bottom-24 left-4 z-[50] cursor-pointer group"
-                onMouseDown={handleMouseDown}
-                onMouseUp={handleMouseUp}
-                onTouchStart={handleMouseDown}
-                onTouchEnd={handleMouseUp}
+
+                // Unified Pointer Events (Handles Touch & Mouse better)
+                onPointerDown={handleMouseDown}
+                onPointerUp={handleMouseUp}
+
+                // Drag Logic
                 onDragStart={() => {
                     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
                     isLongPress.current = false;
@@ -64,6 +67,7 @@ const FloatingDisc = () => {
                         isDragging.current = false;
                     }, 100);
                 }}
+
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 whileHover={{ scale: 1.1 }}
