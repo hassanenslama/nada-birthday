@@ -343,7 +343,8 @@ const AdminDashboard = () => {
             <div className="flex flex-1 overflow-hidden">
                 {/* Check if mobile or desktop - for now simple Responsive Layout */}
                 {/* Sidebar (Desktop) / Horizontal Scroll (Mobile) */}
-                <aside className="w-full md:w-64 bg-[#0f0f0f] border-r border-white/5 flex flex-row md:flex-col overflow-x-auto md:overflow-visible z-40 fixed md:relative bottom-0 md:bottom-auto h-16 md:h-auto border-t md:border-t-0 p-2 md:p-4 gap-2">
+                {/* Sidebar (Desktop) / Horizontal Scroll (Mobile) */}
+                <aside className="w-full md:w-64 bg-[#0f0f0f] border-r border-white/5 flex flex-row md:flex-col items-center md:items-stretch overflow-x-auto md:overflow-visible z-[100] fixed md:relative bottom-0 md:bottom-auto left-0 h-20 md:h-auto border-t md:border-t-0 p-2 md:p-4 gap-2 safe-area-bottom shadow-2xl md:shadow-none">
                     {tabs.map(tab => {
                         const Icon = tab.icon;
                         const isActive = activeTab === tab.id;
