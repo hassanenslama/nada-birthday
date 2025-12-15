@@ -38,41 +38,61 @@ const MainApp = () => {
         }
     };
 
-    // 4. Hash Routing Support (Back Button Fix)
+    // 4. Smart Hash Routing (Back Button Logic)
+    // Goal: Back button always goes Home from other tabs. Menus/Modals use sub-hashes.
+
     useEffect(() => {
         const handleHashChange = () => {
             const hash = window.location.hash.replace('#', '');
             const validTabs = ['home', 'journey', 'feelings', 'messages', 'fun', 'coupons', 'admin', 'settings'];
 
+            // 1. Handle "Modal" hashes (e.g., admin-menu) by ignoring main tab switch
+            if (hash.includes('-')) {
+                // It's a modal state (handled by child components), do nothing here
+                return;
+            }
+
+            // 2. Handle Main Tab Switching
             if (hash && validTabs.includes(hash)) {
                 setActiveTab(hash);
-            } else if (!hash) {
+            } else if (!hash || hash === 'home') {
                 setActiveTab('home');
             }
         };
 
-        // Initial Load: Check hash first, if empty check local storage logic
-        const currentHash = window.location.hash.replace('#', '');
-        if (currentHash) {
-            handleHashChange();
-        }
+        // Initial check
+        handleHashChange();
 
         window.addEventListener('hashchange', handleHashChange);
         return () => window.removeEventListener('hashchange', handleHashChange);
     }, []);
 
-    // Sync Presence & Persistence when tab changes
+    // Custom Tab Switcher to manage History Stack
+    const handleTabChange = (newTab) => {
+        if (newTab === activeTab) return;
+
+        if (newTab === 'home') {
+            // Going home? Go back if we are 1 step away, otherwise push/replace
+            // For simplicity in this PWA structure, we just push '#home' or empty
+            window.location.hash = '';
+        } else {
+            // Going to a feature tab?
+            // If we are currently at home, PUSH.
+            // If we are already at another tab, REPLACE (so Back always goes to Home).
+            if (activeTab === 'home' || activeTab === '') {
+                window.location.hash = newTab;
+            } else {
+                window.history.replaceState(null, '', '#' + newTab);
+                // Manually trigger state update since replaceState doesn't fire hashchange
+                setActiveTab(newTab);
+            }
+        }
+    };
+
+    // Sync Presence & Persistence
     useEffect(() => {
         updateLocation(getTabNameAr(activeTab));
         localStorage.setItem('nav_active_tab', activeTab);
-
-        // Sync Hash with State (without triggering new history if it matches)
-        if (window.location.hash.replace('#', '') !== activeTab) {
-            // We use replaceState for initial load to avoid double history, 
-            // but normally we want pushState. 
-            // Simple hash assignment works as pushState.
-            window.location.hash = activeTab;
-        }
     }, [activeTab]);
 
     const renderContent = () => {
@@ -102,7 +122,7 @@ const MainApp = () => {
             </div>
 
             {/* Bottom Navigation */}
-            <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
+            <Navigation activeTab={activeTab} onTabChange={handleTabChange} />
 
             {/* Global Notification Receiver */}
             <NotificationSystem />

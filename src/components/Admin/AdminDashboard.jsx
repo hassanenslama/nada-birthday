@@ -58,6 +58,17 @@ const AdminDashboard = () => {
         return () => supabase.removeChannel(channel);
     }, []);
 
+    // Sync Mobile Menu with Hash (For Back Button Support)
+    useEffect(() => {
+        const handleHashChange = () => {
+            setShowMobileNav(window.location.hash === '#admin-menu');
+        };
+        window.addEventListener('hashchange', handleHashChange);
+        // Initial check
+        handleHashChange();
+        return () => window.removeEventListener('hashchange', handleHashChange);
+    }, []);
+
     const formatTime = (isoString) => {
         if (!isoString) return 'N/A';
         return new Date(isoString).toLocaleString('ar-EG');
@@ -329,7 +340,7 @@ const AdminDashboard = () => {
 
                 <div className="flex items-center gap-2 md:gap-3">
                     {/* Mobile Menu Toggle */}
-                    <button onClick={() => setShowMobileNav(true)} className="md:hidden p-2.5 rounded-xl bg-[#1a1a1a] text-gold border border-gold/20">
+                    <button onClick={() => window.location.hash = 'admin-menu'} className="md:hidden p-2.5 rounded-xl bg-[#1a1a1a] text-gold border border-gold/20">
                         <Menu size={20} />
                     </button>
 
@@ -357,7 +368,7 @@ const AdminDashboard = () => {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            onClick={() => setShowMobileNav(false)}
+                            onClick={() => window.history.back()}
                             className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] md:hidden"
                         />
                         <motion.div
@@ -373,7 +384,7 @@ const AdminDashboard = () => {
                                         <LayoutDashboard className="text-gold" size={24} />
                                         القائمة
                                     </h2>
-                                    <button onClick={() => setShowMobileNav(false)} className="p-2 bg-white/5 rounded-full text-gray-400">
+                                    <button onClick={() => window.history.back()} className="p-2 bg-white/5 rounded-full text-gray-400">
                                         <X size={20} />
                                     </button>
                                 </div>
@@ -385,7 +396,7 @@ const AdminDashboard = () => {
                                         return (
                                             <button
                                                 key={tab.id}
-                                                onClick={() => { setActiveTab(tab.id); setShowMobileNav(false); }}
+                                                onClick={() => { setActiveTab(tab.id); window.history.back(); }}
                                                 className={`w-full flex items-center gap-4 p-4 rounded-xl transition-all ${isActive ? 'bg-gold text-black font-bold shadow-lg shadow-gold/20' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}
                                             >
                                                 <Icon size={24} />
@@ -401,7 +412,7 @@ const AdminDashboard = () => {
                                         <Home size={20} />
                                         <span>العودة للرئيسية</span>
                                     </button>
-                                    <button onClick={() => { fetchUsersList(); setShowLinkModal(true); setShowMobileNav(false); }} className="w-full flex items-center gap-3 p-3 rounded-xl text-gray-400 hover:bg-white/5">
+                                    <button onClick={() => { fetchUsersList(); setShowLinkModal(true); window.history.back(); }} className="w-full flex items-center gap-3 p-3 rounded-xl text-gray-400 hover:bg-white/5">
                                         <Settings size={20} />
                                         <span>الإعدادات</span>
                                     </button>
