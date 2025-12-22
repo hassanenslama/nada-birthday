@@ -12,6 +12,7 @@ import SettingsPage from './Settings/SettingsPage';
 import NotificationSystem from './NotificationSystem';
 import NotificationsPanel from './NotificationsPanel';
 import CouponsPage from './CouponsPage';
+import PostsPage from './Posts/PostsPage';
 
 import { usePresence } from '../../context/PresenceContext';
 import { useEffect } from 'react';
@@ -31,6 +32,7 @@ const MainApp = () => {
             case 'journey': return 'في رحلتنا';
             case 'feelings': return 'في مشاعرنا';
             case 'messages': return 'في الدردشة';
+            case 'posts': return 'في المنشورات';
             case 'fun': return 'في الترفيه';
             case 'admin': return 'في لوحة التحكم';
             case 'settings': return 'في الإعدادات';
@@ -44,7 +46,7 @@ const MainApp = () => {
     useEffect(() => {
         const handleHashChange = () => {
             const hash = window.location.hash.replace('#', '');
-            const validTabs = ['home', 'journey', 'feelings', 'messages', 'fun', 'coupons', 'admin', 'settings'];
+            const validTabs = ['home', 'journey', 'feelings', 'messages', 'posts', 'fun', 'coupons', 'admin', 'settings'];
 
             // 1. Handle "Modal" hashes (e.g., admin-menu) by ignoring main tab switch
             if (hash.includes('-')) {
@@ -78,6 +80,7 @@ const MainApp = () => {
             case 'journey': return <JourneyPage />;
             case 'feelings': return <FeelingsPage />;
             case 'messages': return <MessagesPage />;
+            case 'posts': return <PostsPage />;
             case 'fun': return <FunPage />;
             case 'coupons': return <CouponsPage />;
             case 'admin': return <AdminDashboard />;

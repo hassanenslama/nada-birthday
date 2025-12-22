@@ -1523,12 +1523,6 @@ const MessagesPage = () => {
                                         onBlur={() => setTimeout(() => setIsFocused(false), 100)}
                                         placeholder="اكتب رسالة..."
                                         className="flex-1 bg-transparent p-3 max-h-28 min-h-[44px] outline-none text-white resize-none text-sm custom-scrollbar"
-                                        onKeyDown={e => {
-                                            if (e.key === 'Enter' && !e.shiftKey) {
-                                                e.preventDefault();
-                                                handleSendMessage(e);
-                                            }
-                                        }}
                                         rows={1}
                                     />
 

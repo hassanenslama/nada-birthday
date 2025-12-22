@@ -1,7 +1,11 @@
--- Enable Realtime for Gallery Tables
+-- Enable Realtime for Posts and Comments tables
+-- Run this in your Supabase SQL Editor to ensure instant updates for other users
+
 begin;
-  -- Remove if already exists to avoid error (optional, but safe to just add)
-  -- Add tables to the publication
-  alter publication supabase_realtime add table gallery_media;
-  alter publication supabase_realtime add table albums;
+  -- Check if publication exists, if not create it (standard supabase setup usually has it)
+  -- We just add tables to it.
+  alter publication supabase_realtime add table posts;
+  alter publication supabase_realtime add table post_comments;
+  alter publication supabase_realtime add table post_reactions;
+  alter publication supabase_realtime add table comment_reactions;
 commit;

@@ -1,25 +1,120 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../../context/AuthContext';
+import { useProfile } from '../../../context/ProfileContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, Globe, Lock, ChevronLeft, User, Key, Save, X, Loader2, CheckCircle2, Music, Bell } from 'lucide-react';
+import { LogOut, Globe, Lock, ChevronLeft, User, Key, Save, X, Loader2, CheckCircle2, Music, Bell, Camera, Edit3 } from 'lucide-react';
 import { supabase } from '../../../supabase';
 import { useMusic } from '../../../context/MusicContext';
 import { usePresence } from '../../../context/PresenceContext';
-import { EyeOff } from 'lucide-react'; // Icon for Ghost Mode
-
+import { EyeOff } from 'lucide-react';
+import { uploadToCloudinary } from '../../../utils/cloudinaryUpload';
+import Toast from '../../common/Toast';
 
 const SettingsPage = () => {
     const { logout, currentUser, userRole } = useAuth();
+    const { userProfile, loading: profileLoading } = useProfile();
     const { isPermanentlyDisabled, setPermanentlyDisabled } = useMusic();
     const { isGhostMode, toggleGhostMode } = usePresence();
     const [loading, setLoading] = useState(false);
     const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(() => localStorage.getItem('notification_sound_enabled') !== 'false');
+    const [toast, setToast] = useState(null); // { message, type }
+
+    // Use a Ref to clear timeout on unmount
+    const toastTimeoutRef = useRef(null);
+
+    const showToast = (message, type = 'success') => {
+        setToast({ message, type });
+        if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+        toastTimeoutRef.current = setTimeout(() => setToast(null), 3000);
+    };
+
+    // Profile State
+    const [displayName, setDisplayName] = useState('');
+    const [originalDisplayName, setOriginalDisplayName] = useState('');
+    const [avatarUrl, setAvatarUrl] = useState(null);
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [avatarPreview, setAvatarPreview] = useState(null);
+    const [isProfileSaving, setIsProfileSaving] = useState(false);
+    const [isEditingName, setIsEditingName] = useState(false);
+    const fileInputRef = useRef(null);
+    const nameInputRef = useRef(null);
 
     // Change Password State
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [newPassword, setNewPassword] = useState('');
     const [passwordLoading, setPasswordLoading] = useState(false);
-    const [passwordHistory, setPasswordHistory] = useState(null); // success msg
+    const [passwordHistory, setPasswordHistory] = useState(null);
+
+    // Sync local state with global profile state
+    useEffect(() => {
+        if (userProfile) {
+            setDisplayName(userProfile.display_name || '');
+            setOriginalDisplayName(userProfile.display_name || '');
+            setAvatarUrl(userProfile.avatar_url);
+        }
+    }, [userProfile]);
+
+    const handleImageSelect = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setSelectedImage(file);
+            setAvatarPreview(URL.createObjectURL(file));
+        }
+    };
+
+    const handleProfileUpdate = async () => {
+        if (!displayName.trim()) return showToast('الاسم مينفعش يكون فاضي!', 'error');
+
+        setIsProfileSaving(true);
+        try {
+            let newAvatarUrl = avatarUrl;
+
+            // Upload Image to Supabase Storage if selected
+            if (selectedImage) {
+                const fileExt = selectedImage.name.split('.').pop();
+                const fileName = `${currentUser.id}-${Date.now()}.${fileExt}`;
+                const filePath = `${fileName}`;
+
+                const { error: uploadError, data } = await supabase.storage
+                    .from('avatars')
+                    .upload(filePath, selectedImage);
+
+                if (uploadError) throw uploadError;
+
+                // Get Public URL
+                const { data: { publicUrl } } = supabase.storage
+                    .from('avatars')
+                    .getPublicUrl(filePath);
+
+                newAvatarUrl = publicUrl;
+            }
+
+            // Update Profile in DB
+            const { error } = await supabase
+                .from('user_profiles')
+                .upsert({
+                    id: currentUser.id,
+                    display_name: displayName,
+                    avatar_url: newAvatarUrl,
+                    updated_at: new Date()
+                });
+
+            if (error) throw error;
+
+            if (error) throw error;
+
+            setAvatarUrl(newAvatarUrl);
+            setOriginalDisplayName(displayName);
+            setSelectedImage(null);
+            setIsEditingName(false);
+            showToast('تم تحديث البروفايل بنجاح! 🌟');
+        } catch (error) {
+            console.error('Error updating profile:', error);
+            showToast('فشل التحديث: ' + (error.message || 'جرب تاني'), 'error');
+        } finally {
+            setIsProfileSaving(false);
+        }
+    };
 
     const handleLogout = async () => {
         try {
@@ -34,18 +129,15 @@ const SettingsPage = () => {
 
     const handleChangePassword = async () => {
         if (!newPassword || newPassword.length < 6) {
-            alert("كلمة السر لازم تكون 6 حروف أو أرقام على الأقل يا ست الكل 😉");
+            showToast("كلمة السر لازم تكون 6 حروف أو أرقام على الأقل يا ست الكل 😉", 'error');
             return;
         }
 
         setPasswordLoading(true);
         try {
-            // 1. Update Authentication Password (Real Change)
             const { error } = await supabase.auth.updateUser({ password: newPassword });
             if (error) throw error;
 
-            // 2. Update Admin Note (So Hassanen knows it for help)
-            // We update the 'admin_note' field in her user profile
             const { error: noteError } = await supabase
                 .from('user_profiles')
                 .update({ admin_note: newPassword })
@@ -54,6 +146,7 @@ const SettingsPage = () => {
             if (noteError) console.error("Note Error:", noteError);
 
             setPasswordHistory("تم تغيير الباسورد بنجاح! 🥳");
+            showToast("تم تغيير الباسورد بنجاح! 🥳");
             setTimeout(() => {
                 setShowPasswordModal(false);
                 setNewPassword('');
@@ -62,7 +155,7 @@ const SettingsPage = () => {
 
         } catch (error) {
             console.error("Password Update Error:", error);
-            alert("حصل خطأ.. جربي تاني!");
+            showToast("حصل خطأ.. جربي تاني!", 'error');
         } finally {
             setPasswordLoading(false);
         }
@@ -88,22 +181,83 @@ const SettingsPage = () => {
         </motion.button>
     );
 
+    if (profileLoading) return <div className="flex justify-center items-center min-h-screen text-gold"><Loader2 className="animate-spin" size={40} /></div>;
+
     return (
         <div className="min-h-screen pb-24 pt-8 px-4 font-cairo">
             <h1 className="text-3xl text-gold font-bold mb-8 text-center">الإعدادات ⚙️</h1>
 
-            {/* Profile Card */}
-            <div className="bg-gradient-to-br from-gray-900 to-black border border-gold/30 rounded-3xl p-6 mb-8 text-center relative overflow-hidden">
+            {/* Editable Profile Card */}
+            <div className="bg-gradient-to-br from-[#1a1a1a] to-black border border-gold/30 rounded-3xl p-6 mb-8 text-center relative overflow-hidden group">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-gold to-transparent opacity-50"></div>
 
-                <div className="w-20 h-20 mx-auto bg-gradient-to-br from-gold to-yellow-600 rounded-full flex items-center justify-center text-3xl mb-4 shadow-lg shadow-gold/20">
-                    {userRole === 'admin' ? '🕶️' : '👸'}
+                <div className="relative w-24 h-24 mx-auto mb-4">
+                    <div
+                        className="w-full h-full rounded-full border-2 border-gold/50 overflow-hidden cursor-pointer shadow-[0_0_20px_rgba(255,215,0,0.1)] group-hover:shadow-[0_0_30px_rgba(255,215,0,0.3)] transition-all"
+                        onClick={() => fileInputRef.current?.click()}
+                    >
+                        {avatarPreview || avatarUrl ? (
+                            <img src={avatarPreview || avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-gold to-yellow-600 flex items-center justify-center text-3xl">
+                                {displayName?.[0]?.toUpperCase() || currentUser?.email?.[0]?.toUpperCase()}
+                            </div>
+                        )}
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full backdrop-blur-[2px]">
+                            <Camera className="text-white" size={24} />
+                        </div>
+                    </div>
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleImageSelect}
+                        accept="image/*"
+                        className="hidden"
+                    />
                 </div>
 
-                <h2 className="text-xl font-bold text-white mb-1">
-                    {userRole === 'admin' ? 'الباشمهندس حسانين' : 'الأميرة ندى'}
-                </h2>
-                <p className="text-gray-500 text-sm dir-ltr email-font">{currentUser?.email}</p>
+                <div className="mb-4 px-4">
+                    <div className="relative max-w-[200px] mx-auto">
+                        <input
+                            ref={nameInputRef}
+                            type="text"
+                            value={displayName}
+                            onChange={(e) => setDisplayName(e.target.value)}
+                            readOnly={!isEditingName}
+                            onBlur={() => !displayName.trim() && setDisplayName(originalDisplayName)}
+                            className={`bg-transparent border-b text-center text-xl font-bold text-white w-full pb-1 outline-none transition-all ${isEditingName
+                                ? 'border-gold border-b-2'
+                                : 'border-transparent cursor-default'
+                                }`}
+                            placeholder="اكتب اسمك هنا"
+                        />
+                        <button
+                            onClick={() => {
+                                setIsEditingName(!isEditingName);
+                                if (!isEditingName) {
+                                    setTimeout(() => nameInputRef.current?.focus(), 100);
+                                }
+                            }}
+                            className={`absolute left-0 top-1.5 transition-colors ${isEditingName ? 'text-gold' : 'text-gray-500 hover:text-white'}`}
+                        >
+                            <Edit3 size={16} />
+                        </button>
+                    </div>
+                    <p className="text-gray-500 text-xs dir-ltr email-font mt-1">{currentUser?.email}</p>
+                </div>
+
+                {(selectedImage || displayName !== originalDisplayName) && (
+                    <motion.button
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        onClick={handleProfileUpdate}
+                        disabled={isProfileSaving}
+                        className="bg-gold text-black px-6 py-2 rounded-full font-bold text-sm shadow-lg hover:bg-yellow-400 transition-colors disabled:opacity-50 flex items-center gap-2 mx-auto"
+                    >
+                        {isProfileSaving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                        حفظ التعديلات
+                    </motion.button>
+                )}
             </div>
 
             {/* Settings List */}
@@ -117,7 +271,7 @@ const SettingsPage = () => {
                     onClick={() => alert('قريباً.. حالياً المتاح عربي بس يا ست الكل 😉')}
                 />
 
-                {/* Music Control - Added here as requested */}
+                {/* Music Control */}
                 <div className="w-full flex items-center justify-between p-4 rounded-2xl border border-white/5 bg-white/5 backdrop-blur-sm mb-3 transition-colors hover:bg-white/10">
                     <div className="flex items-center gap-4">
                         <div className="p-2 rounded-full bg-gold/10 text-gold">
@@ -186,12 +340,12 @@ const SettingsPage = () => {
                     </label>
                 </div>
 
-                <div className="opacity-50 pointer-events-none grayscale">
+                <div className="opacity-100">
                     <SettingItem
                         icon={Lock}
                         title="تغيير الباسورد"
                         value="********"
-                        onClick={() => { }} // Disabled
+                        onClick={() => setShowPasswordModal(true)}
                     />
                 </div>
 
@@ -269,7 +423,11 @@ const SettingsPage = () => {
                     </motion.div>
                 )}
             </AnimatePresence>
-        </div>
+
+            <AnimatePresence>
+                {toast && <Toast message={toast.message} type={toast.type} />}
+            </AnimatePresence>
+        </div >
     );
 };
 

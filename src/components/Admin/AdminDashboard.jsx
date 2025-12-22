@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
-import { LayoutDashboard, LogOut, Settings, RotateCw, AlertTriangle, Check, Shield, Smartphone, Globe, Clock, MapPin, Activity, Home, Menu, X, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, LogOut, Settings, RotateCw, AlertTriangle, Check, Shield, Smartphone, Globe, Clock, MapPin, Activity, Home, Menu, X, ChevronRight, MessageCircle } from 'lucide-react';
 import { usePresence } from '../../context/PresenceContext';
 
 // New Modular Components
@@ -17,6 +17,7 @@ import NotificationsManager from './components/NotificationsManager';
 import CouponsManager from './components/CouponsManager';
 import QuizManager from './components/QuizManager';
 import UserMonitorCard from './components/UserMonitorCard';
+import PostsMonitor from './components/PostsMonitor';
 
 
 // Toast Component
@@ -217,6 +218,7 @@ const AdminDashboard = () => {
     // Import icons for sidebar
     const tabs = [
         { id: 'overview', label: 'نظرة عامة', icon: Activity },
+        { id: 'posts', label: 'المنشورات', icon: MessageCircle },
         { id: 'gallery', label: 'الصور', icon: Globe }, // Use Image icon if available but Globe is imported
         { id: 'wishes', label: 'الأمنيات', icon: RotateCw }, // Todo: Import better icons
         { id: 'feelings', label: 'المشاعر', icon: Shield }, // Emotional Shield?
@@ -306,9 +308,22 @@ const AdminDashboard = () => {
                         <NotificationsManager onToast={showToast} />
                     </div>
                 );
+            case 'posts':
+                return (
+                    <div className="bg-[#1a1a1a] border border-white/5 rounded-3xl p-6 min-h-[500px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <PostsMonitor />
+                    </div>
+                );
             case 'coupons':
                 return (
                     <div className="bg-[#1a1a1a] border border-white/5 rounded-3xl p-6 min-h-[500px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <CouponsManager onToast={showToast} />
+                    </div>
+                );
+            case 'competition':
+                return (
+                    <div className="bg-[#1a1a1a] border border-white/5 rounded-3xl p-6 min-h-[500px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        {/* Assuming CouponsManager is a placeholder for competition content */}
                         <CouponsManager onToast={showToast} />
                     </div>
                 );

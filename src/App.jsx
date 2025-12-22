@@ -124,18 +124,21 @@ const AppContent = () => {
 };
 
 import { BackButtonProvider } from './context/BackButtonContext';
+import { ProfileProvider } from './context/ProfileContext';
 
 function App() {
   return (
     <Router>
       <BackButtonProvider>
         <AuthProvider>
-          <PresenceProvider>
-            <MusicProvider>
-              <AppContent />
-              <FloatingDisc />
-            </MusicProvider>
-          </PresenceProvider>
+          <ProfileProvider>
+            <PresenceProvider>
+              <MusicProvider>
+                <AppContent />
+                <FloatingDisc />
+              </MusicProvider>
+            </PresenceProvider>
+          </ProfileProvider>
         </AuthProvider>
       </BackButtonProvider>
     </Router>

@@ -23,6 +23,35 @@ const FeelingsPage = () => {
         return () => sub.unsubscribe();
     }, []);
 
+    // Profile State
+    const [adminProfile, setAdminProfile] = useState(null);
+    const [userProfile, setUserProfile] = useState(null);
+
+    useEffect(() => {
+        const fetchProfiles = async () => {
+            // Emails are hardcoded based on AuthContext logic
+            const { data: adminId } = await supabase.rpc('get_user_id_by_email', { email: 'hassanen@love.com' });
+            const { data: userId } = await supabase.rpc('get_user_id_by_email', { email: 'nada@love.com' });
+
+            if (adminId) {
+                const { data } = await supabase.from('user_profiles').select('*').eq('id', adminId).single();
+                if (data) setAdminProfile(data);
+            }
+            if (userId) {
+                const { data } = await supabase.from('user_profiles').select('*').eq('id', userId).single();
+                if (data) setUserProfile(data);
+            }
+        };
+        fetchProfiles();
+
+        // Subscribe to profile changes
+        const sub = supabase.channel('profiles_changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'user_profiles' }, () => fetchProfiles())
+            .subscribe();
+
+        return () => sub.unsubscribe();
+    }, []);
+
     const fetchMessages = async () => {
         const { data } = await supabase.from('feelings').select('*').order('created_at', { ascending: false });
         if (data) setMessages(data);
@@ -62,7 +91,7 @@ const FeelingsPage = () => {
     ];
 
     return (
-        <div className="min-h-screen pb-24 pt-8 px-4 relative overflow-hidden">
+        <div className="min-h-screen pb-24 pt-16 px-4 relative overflow-hidden">
             {/* Ambient Background */}
             <div className="fixed inset-0 pointer-events-none">
                 <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-purple-900/10 blur-[120px] rounded-full" />
@@ -86,10 +115,10 @@ const FeelingsPage = () => {
                             key={cat.id}
                             onClick={() => setActiveTab(cat.id)}
                             className={`px-6 py-2 rounded-full font-cairo font-bold transition-all duration-300 relative overflow-hidden ${activeTab === cat.id
-                                    ? cat.id === 'admin' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.2)]'
-                                        : cat.id === 'user' ? 'bg-pink-600/20 text-pink-400 border border-pink-500/50 shadow-[0_0_15px_rgba(236,72,153,0.2)]'
-                                            : 'bg-gold/20 text-gold border border-gold/50 shadow-[0_0_15px_rgba(255,215,0,0.2)]'
-                                    : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/5'
+                                ? cat.id === 'admin' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.2)]'
+                                    : cat.id === 'user' ? 'bg-pink-600/20 text-pink-400 border border-pink-500/50 shadow-[0_0_15px_rgba(236,72,153,0.2)]'
+                                        : 'bg-gold/20 text-gold border border-gold/50 shadow-[0_0_15px_rgba(255,215,0,0.2)]'
+                                : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/5'
                                 }`}
                         >
                             {activeTab === cat.id && (
@@ -104,51 +133,67 @@ const FeelingsPage = () => {
             {/* Messages Grid */}
             <div className="max-w-4xl mx-auto grid gap-6 md:grid-cols-2 relative z-10">
                 <AnimatePresence mode='popLayout'>
-                    {filteredMessages.map((msg, index) => (
-                        <motion.div
-                            key={msg.id}
-                            layout
-                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9 }}
-                            transition={{ delay: index * 0.05 }}
-                            className={`relative group rounded-3xl p-6 border backdrop-blur-xl overflow-hidden ${msg.sender_role === 'admin'
+                    {filteredMessages.map((msg, index) => {
+                        const senderProfile = msg.sender_role === 'admin' ? adminProfile : userProfile;
+                        const avatarUrl = senderProfile?.avatar_url || senderProfile?.profile_picture;
+                        const displayName = senderProfile?.display_name || (msg.sender_role === 'admin' ? 'Hassanen' : 'Nada');
+
+                        return (
+                            <motion.div
+                                key={msg.id}
+                                layout
+                                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.9 }}
+                                transition={{ delay: index * 0.05 }}
+                                className={`relative group rounded-3xl p-6 border backdrop-blur-xl overflow-hidden ${msg.sender_role === 'admin'
                                     ? 'bg-gradient-to-br from-blue-900/10 to-transparent border-blue-500/10 hover:border-blue-500/30'
                                     : 'bg-gradient-to-br from-pink-900/10 to-transparent border-pink-500/10 hover:border-pink-500/30'
-                                }`}
-                        >
-                            {/* Decorative Blur */}
-                            <div className={`absolute top-0 right-0 w-32 h-32 blur-[60px] rounded-full -z-10 transition-opacity opacity-0 group-hover:opacity-100 ${msg.sender_role === 'admin' ? 'bg-blue-500/10' : 'bg-pink-500/10'
-                                }`} />
+                                    }`}
+                            >
+                                {/* Decorative Blur */}
+                                <div className={`absolute top-0 right-0 w-32 h-32 blur-[60px] rounded-full -z-10 transition-opacity opacity-0 group-hover:opacity-100 ${msg.sender_role === 'admin' ? 'bg-blue-500/10' : 'bg-pink-500/10'
+                                    }`} />
 
-                            <div className="flex items-start justify-between mb-4">
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl shadow-lg ${msg.sender_role === 'admin' ? 'bg-blue-500 text-white' : 'bg-pink-500 text-white'
-                                        }`}>
-                                        {msg.sender_role === 'admin' ? '👑' : '👸'}
-                                    </div>
-                                    <div>
-                                        <h3 className="font-bold text-white font-cairo text-lg leading-tight">{msg.title}</h3>
-                                        <div className="flex items-center gap-1 text-[10px] text-gray-400 font-mono">
-                                            <Calendar size={10} />
-                                            {new Date(msg.created_at).toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl shadow-lg overflow-hidden border-2 ${msg.sender_role === 'admin' ? 'border-blue-500/30' : 'border-pink-500/30'}`}>
+                                            {avatarUrl ? (
+                                                <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <span className={msg.sender_role === 'admin' ? 'text-blue-500' : 'text-pink-500'}>
+                                                    {displayName[0]?.toUpperCase()}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-white font-cairo text-lg leading-tight flex items-center gap-2">
+                                                {displayName}
+                                                {/* Optional: Add Role Badge or verify icon */}
+                                            </h3>
+                                            <div className="flex items-center gap-2 text-[10px] text-gray-400 font-mono">
+                                                <Calendar size={10} />
+                                                {new Date(msg.created_at).toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {msg.image_url && (
-                                <div className="mb-4 rounded-xl overflow-hidden aspect-video relative group/img cursor-pointer">
-                                    <img src={msg.image_url} alt={msg.title} className="w-full h-full object-cover transform group-hover/img:scale-105 transition-transform duration-700" />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover/img:opacity-100 transition-opacity" />
-                                </div>
-                            )}
+                                <h4 className="text-gold font-bold mb-2 font-cairo">{msg.title}</h4>
 
-                            <p className="text-gray-300 font-cairo leading-relaxed whitespace-pre-line text-sm md:text-base">
-                                {msg.content}
-                            </p>
-                        </motion.div>
-                    ))}
+                                {msg.image_url && (
+                                    <div className="mb-4 rounded-xl overflow-hidden aspect-video relative group/img cursor-pointer">
+                                        <img src={msg.image_url} alt={msg.title} className="w-full h-full object-cover transform group-hover/img:scale-105 transition-transform duration-700" />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover/img:opacity-100 transition-opacity" />
+                                    </div>
+                                )}
+
+                                <p className="text-gray-300 font-cairo leading-relaxed whitespace-pre-line text-sm md:text-base">
+                                    {msg.content}
+                                </p>
+                            </motion.div>
+                        );
+                    })}
                 </AnimatePresence>
             </div>
 
