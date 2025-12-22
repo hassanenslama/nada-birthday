@@ -316,7 +316,12 @@ const PostCard = ({ post, onDelete, onUpdate, index }) => {
                 <div className="w-full bg-black/40 border-y border-white/5 backdrop-blur-sm">
                     {post.image_url && (
                         <div className="w-full max-h-[600px] flex items-center justify-center p-1">
-                            <img src={post.image_url} alt="Post" className="max-w-full max-h-[500px] object-contain rounded-lg shadow-2xl" />
+                            {/* Check if Video or Image */}
+                            {(post.image_url.includes('/video/') || post.image_url.endsWith('.mp4') || post.image_url.endsWith('.webm')) ? (
+                                <video src={post.image_url} controls loop playsInline className="max-w-full max-h-[500px] rounded-lg shadow-2xl" />
+                            ) : (
+                                <img src={post.image_url} alt="Post" className="max-w-full max-h-[500px] object-contain rounded-lg shadow-2xl" />
+                            )}
                         </div>
                     )}
 

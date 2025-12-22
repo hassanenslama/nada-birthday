@@ -1511,8 +1511,12 @@ const MessagesPage = () => {
                         </AnimatePresence>
                         <div className="p-2">
                             <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(e); }} className="flex gap-2 items-end max-w-4xl mx-auto">
-                                <button type="button" onClick={() => fileInputRef.current?.click()} className="p-3 text-gold bg-[#1a1a1a] rounded-full hover:bg-gold/10 flex-none self-end"><Paperclip size={20} /></button>
-                                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={e => setSelectedFile(e.target.files[0])} />
+                                <button type="button" onClick={() => fileInputRef.current?.click()} className="p-3 text-gold bg-[#1a1a1a] rounded-full hover:bg-gold/10 flex-none self-end">
+                                    {/* Using Camera/Image icon to signify Gallery */}
+                                    <Camera size={20} />
+                                </button>
+                                {/* multiple attribute added to trigger gallery grid on some Android devices */}
+                                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={e => setSelectedFile(e.target.files[0])} />
                                 <div className="relative flex-1 bg-[#1a1a1a] rounded-2xl flex items-center border border-white/5 px-1 min-h-[50px] max-h-32">
                                     <button type="button" onClick={() => { document.activeElement.blur(); window.location.hash = 'emoji'; }} className="p-2 text-gray-400 hover:text-white self-end"><Smile size={20} /></button>
                                     <textarea
