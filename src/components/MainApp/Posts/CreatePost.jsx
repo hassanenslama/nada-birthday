@@ -36,8 +36,6 @@ const CreatePost = ({ onPostCreated }) => {
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
-    const isVideo = (file) => file?.type?.startsWith('video/');
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         if ((!content.trim() && !image) || isSubmitting) return;
@@ -52,11 +50,9 @@ const CreatePost = ({ onPostCreated }) => {
             const match = content.match(urlRegex);
             if (match) linkUrl = match[0];
 
-            // 2. Upload Image/Video
+            // 2. Upload Image
             if (image) {
-                // Determine resource type based on file
-                const resourceType = isVideo(image) ? 'video' : 'image';
-                const uploadResult = await uploadToCloudinary(image, { folder: 'posts', resource_type: resourceType });
+                const uploadResult = await uploadToCloudinary(image, { folder: 'posts' });
                 imageUrl = uploadResult.url;
             }
 
@@ -64,7 +60,7 @@ const CreatePost = ({ onPostCreated }) => {
             const { error } = await supabase.from('posts').insert({
                 user_id: currentUser.id,
                 content: content,
-                image_url: imageUrl, // Storing both image and video in same column for simplicity, PostCard will distinguish
+                image_url: imageUrl,
                 link_url: linkUrl
             });
 
@@ -129,11 +125,7 @@ const CreatePost = ({ onPostCreated }) => {
                                     className="relative mt-2 rounded-2xl overflow-hidden max-h-80 border border-white/10 group/img"
                                 >
                                     <div className="absolute inset-0 bg-black/20 group-hover/img:bg-transparent transition-colors" />
-                                    {isVideo(image) ? (
-                                        <video src={imagePreview} controls className="w-full h-full object-cover" />
-                                    ) : (
-                                        <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                                    )}
+                                    <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
                                     <button
                                         type="button"
                                         onClick={clearImage}
@@ -154,14 +146,14 @@ const CreatePost = ({ onPostCreated }) => {
                                 <div className="p-1.5 rounded-lg bg-white/5 group-hover/btn:bg-gold/20 transition-colors">
                                     <ImageIcon size={18} />
                                 </div>
-                                <span className="text-xs font-medium">صورة / فيديو</span>
+                                <span className="text-xs font-medium">صورة</span>
                             </button>
-                            {/* Adding multiple=true triggers Gallery grid layout on Android usually. Accepting video as well. */}
+                            {/* Keeping multiple=true for Gallery Grid feel, but restricting to image/* */}
                             <input
                                 type="file"
                                 ref={fileInputRef}
                                 className="hidden"
-                                accept="image/*,video/*"
+                                accept="image/*"
                                 multiple
                                 onChange={handleImageSelect}
                             />
