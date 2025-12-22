@@ -29,17 +29,17 @@ const HomePage = () => {
                     {/* Glowing Aura behind text */}
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-gold/10 blur-[80px] rounded-full pointer-events-none" />
 
-                    <h1 className="relative text-5xl md:text-8xl font-signature text-transparent bg-clip-text bg-gradient-to-b from-gold via-yellow-200 to-yellow-600 mb-4 drop-shadow-[0_2px_10px_rgba(255,215,0,0.3)]">
-                        منورة يا ندى
+                    <h1 className="relative text-5xl md:text-8xl font-signature text-transparent bg-clip-text bg-gradient-to-r from-pink-300 via-purple-300 to-indigo-400 mb-6 drop-shadow-[0_0_25px_rgba(168,85,247,0.4)] animate-pulse">
+                        نورتي دنيتي يا ندى
                     </h1>
 
                     <motion.p
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: 1.5, duration: 1 }}
-                        className="text-xl md:text-2xl text-gray-300 font-cairo font-light tracking-wide"
+                        className="text-xl md:text-2xl text-blue-100 font-cairo font-light tracking-wide"
                     >
-                        كل سنة وأنتي طيبة يا أحلى حاجة في حياتي ❤️
+                        وجودك هو أعظم نعمة في حياتي ❤️
                     </motion.p>
                 </motion.div>
 
