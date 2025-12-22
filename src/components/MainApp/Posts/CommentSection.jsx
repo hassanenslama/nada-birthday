@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../../supabase';
 import { useAuth } from '../../../context/AuthContext';
-import { Send, Trash2, Loader2, MessageCircle, CornerDownRight, Edit2, Check, X } from 'lucide-react';
+import { Send, Trash2, Loader2, MessageCircle, CornerDownRight, Edit2, Check, X, Image as ImageIcon } from 'lucide-react';
 import ReactionButton from './ReactionButton';
 import ConfirmModal from './ConfirmModal';
 import { motion, AnimatePresence } from 'framer-motion';
+import { uploadToCloudinary } from '../../../utils/cloudinaryUpload';
+
 
 const CommentItem = ({ comment, postId, onDelete, onUpdate, onReply, replies = [], getReplies, depth = 0 }) => {
     const { currentUser } = useAuth();
@@ -296,9 +298,21 @@ const CommentItem = ({ comment, postId, onDelete, onUpdate, onReply, replies = [
                                 </div>
                             </div>
                         ) : (
-                            <p className="text-gray-100 whitespace-pre-wrap leading-relaxed opacity-100 font-medium text-sm">
-                                {comment.content}
-                            </p>
+                            <div className="mt-1">
+                                <p className="text-gray-100 whitespace-pre-wrap leading-relaxed opacity-100 font-medium text-sm">
+                                    {comment.content}
+                                </p>
+                                {comment.image_url && (
+                                    <div className="mt-2 rounded-lg overflow-hidden max-w-[200px] border border-white/10 group/image">
+                                        <img
+                                            src={comment.image_url}
+                                            alt="Attachment"
+                                            className="w-full h-auto object-cover max-h-48 cursor-pointer hover:opacity-90 transition-opacity"
+                                            onClick={() => window.open(comment.image_url, '_blank')}
+                                        />
+                                    </div>
+                                )}
+                            </div>
                         )}
 
                         {/* Actions */}
@@ -395,6 +409,9 @@ const CommentSection = ({ postId }) => {
     const [submitting, setSubmitting] = useState(false);
     const [loading, setLoading] = useState(true);
     const [currentUserProfile, setCurrentUserProfile] = useState(null);
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
+    const fileInputRef = useRef(null);
 
     useEffect(() => {
         const fetchUserProfile = async () => {
@@ -427,12 +444,27 @@ const CommentSection = ({ postId }) => {
         setLoading(false);
     };
 
-    const handleAddComment = async (content, parentId = null) => {
+    const handleImageSelect = (e) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setSelectedImage(file);
+            setImagePreview(URL.createObjectURL(file));
+        }
+    };
+
+    const clearImage = () => {
+        setSelectedImage(null);
+        setImagePreview(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    const handleAddComment = async (content, parentId = null, imageUrl = null) => {
         const { error } = await supabase.from('post_comments').insert({
             post_id: postId,
             user_id: currentUser.id,
             content: content,
-            parent_id: parentId
+            parent_id: parentId,
+            image_url: imageUrl
         });
 
         if (error) {
@@ -443,12 +475,25 @@ const CommentSection = ({ postId }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!newComment.trim() || submitting) return;
+        if ((!newComment.trim() && !selectedImage) || submitting) return;
 
         setSubmitting(true);
-        await handleAddComment(newComment.trim());
-        setNewComment('');
-        setSubmitting(false);
+        try {
+            let imageUrl = null;
+            if (selectedImage) {
+                const uploadResult = await uploadToCloudinary(selectedImage, { folder: 'comment-images' });
+                imageUrl = uploadResult.url;
+            }
+
+            await handleAddComment(newComment.trim(), null, imageUrl);
+            setNewComment('');
+            clearImage();
+        } catch (error) {
+            console.error('Error submitting comment:', error);
+            alert('حدث خطأ أثناء إرسال التعليق');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     // Group comments into hierarchy
@@ -462,47 +507,86 @@ const CommentSection = ({ postId }) => {
     return (
         <div className="border-t border-white/5 bg-[#121212]/50 backdrop-blur-md p-5 rounded-b-3xl">
             {/* Input for Parent Comment */}
-            <form onSubmit={handleSubmit} className="flex gap-3 items-center mb-8">
+            <form onSubmit={handleSubmit} className="flex gap-3 items-end mb-8">
                 {currentUserProfile?.avatar_url ? (
                     <img
                         src={currentUserProfile.avatar_url}
                         alt="Me"
-                        className="w-10 h-10 rounded-full object-cover border border-white/10 shadow-lg"
+                        className="w-10 h-10 rounded-full object-cover border border-white/10 shadow-lg mb-1"
                     />
                 ) : (
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold/20 to-gold/5 flex items-center justify-center border border-white/10 flex-none shadow-lg">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold/20 to-gold/5 flex items-center justify-center border border-white/10 flex-none shadow-lg mb-1">
                         <span className="text-gold font-bold text-sm">{currentUser?.email?.[0].toUpperCase() || 'U'}</span>
                     </div>
                 )}
-                <div className="flex-1 relative group">
+                <div className="flex-1 relative group w-full">
                     <div className="absolute -inset-0.5 bg-gradient-to-r from-gold/20 to-purple-600/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
-                    <textarea
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        placeholder="شارك برأيك في نقاش راقٍ... ✨"
-                        className="relative w-full bg-[#181818] border border-white/10 rounded-2xl pl-12 pr-14 py-3.5 text-sm text-white outline-none focus:border-gold/40 focus:bg-[#1a1a1a] transition-all placeholder-gray-500 shadow-xl resize-none min-h-[50px] max-h-[150px] leading-relaxed custom-scrollbar"
-                        rows={1}
-                        onInput={(e) => {
-                            e.target.style.height = 'auto';
-                            e.target.style.height = e.target.scrollHeight + 'px';
-                        }}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                                // Default behavior: New Line
-                            }
-                            if (e.key === 'Enter' && e.ctrlKey) {
-                                e.preventDefault();
-                                handleSubmit(e);
-                            }
-                        }}
-                    />
-                    <button
-                        type="submit"
-                        disabled={!newComment.trim() || submitting}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-gradient-to-r from-gold to-yellow-500 text-black rounded-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 shadow-lg z-10"
-                    >
-                        {submitting ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} className="rtl:rotate-180" />}
-                    </button>
+
+                    {/* Image Preview */}
+                    <AnimatePresence>
+                        {imagePreview && (
+                            <motion.div
+                                initial={{ opacity: 0, height: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, height: 'auto', scale: 1 }}
+                                exit={{ opacity: 0, height: 0, scale: 0.9 }}
+                                className="relative mb-2 rounded-xl overflow-hidden bg-black/50 border border-white/10 w-fit max-w-[200px]"
+                            >
+                                <img src={imagePreview} alt="Preview" className="max-h-32 object-contain" />
+                                <button
+                                    type="button"
+                                    onClick={clearImage}
+                                    className="absolute top-1 right-1 p-1 bg-black/60 rounded-full text-white hover:bg-red-500 transition-colors"
+                                >
+                                    <X size={12} />
+                                </button>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    <div className="relative">
+                        <textarea
+                            value={newComment}
+                            onChange={(e) => setNewComment(e.target.value)}
+                            placeholder="شارك برأيك... ✨"
+                            className="relative w-full bg-[#181818] border border-white/10 rounded-2xl pl-12 pr-14 py-3.5 text-sm text-white outline-none focus:border-gold/40 focus:bg-[#1a1a1a] transition-all placeholder-gray-500 shadow-xl resize-none min-h-[50px] max-h-[150px] leading-relaxed custom-scrollbar"
+                            rows={1}
+                            onInput={(e) => {
+                                e.target.style.height = 'auto';
+                                e.target.style.height = e.target.scrollHeight + 'px';
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                    // Default behavior: New Line
+                                }
+                                if (e.key === 'Enter' && e.ctrlKey) {
+                                    e.preventDefault();
+                                    handleSubmit(e);
+                                }
+                            }}
+                        />
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-gold transition-colors"
+                        >
+                            <ImageIcon size={20} />
+                        </button>
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
+                            accept="image/*"
+                            onChange={handleImageSelect}
+                        />
+
+                        <button
+                            type="submit"
+                            disabled={(!newComment.trim() && !selectedImage) || submitting}
+                            className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-gradient-to-r from-gold to-yellow-500 text-black rounded-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 shadow-lg z-10"
+                        >
+                            {submitting ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} className="rtl:rotate-180" />}
+                        </button>
+                    </div>
                 </div>
             </form>
 

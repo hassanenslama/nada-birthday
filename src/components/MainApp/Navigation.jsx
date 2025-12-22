@@ -21,7 +21,7 @@ const Navigation = ({ activeTab, onTabChange }) => {
 
     return (
         <div className="absolute bottom-0 left-0 w-full bg-black/90 backdrop-blur-xl border-t border-gold/30 z-50 pb-safe transition-all duration-300">
-            <div className="flex justify-around items-center px-2 py-3">
+            <div className="flex items-center overflow-x-auto custom-scrollbar px-2 py-3 gap-1 no-scrollbar">
                 {tabs.map((tab) => {
                     const isActive = activeTab === tab.id;
                     const Icon = tab.icon;
@@ -29,14 +29,14 @@ const Navigation = ({ activeTab, onTabChange }) => {
                         <button
                             key={tab.id}
                             onClick={() => onTabChange(tab.id)}
-                            className={`flex flex-col items-center gap-1 transition-all duration-300 ${isActive ? 'scale-110' : 'opacity-60 hover:opacity-100'}`}
+                            className={`flex flex-col items-center gap-1 transition-all duration-300 min-w-[70px] flex-none ${isActive ? 'scale-110' : 'opacity-60 hover:opacity-100'}`}
                         >
                             <span
                                 className={`text-2xl transition-all duration-300 filter ${isActive ? 'drop-shadow-[0_0_10px_rgba(197,160,89,0.5)]' : ''}`}
                             >
                                 <Icon size={24} color={isActive ? '#c5a059' : '#9ca3af'} />
                             </span>
-                            <span className={`text-xs font-cairo font-bold ${isActive ? 'text-gold' : 'text-gray-400'}`}>
+                            <span className={`text-xs font-cairo font-bold whitespace-nowrap ${isActive ? 'text-gold' : 'text-gray-400'}`}>
                                 {tab.label}
                             </span>
                         </button>
