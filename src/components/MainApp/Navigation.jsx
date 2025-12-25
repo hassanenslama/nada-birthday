@@ -1,4 +1,4 @@
-import { Home, Map, Heart, Gamepad2, Settings, User, Ticket, Newspaper } from 'lucide-react';
+import { Home, Map, Heart, Gamepad2, Settings, User, Ticket, Newspaper, BookOpen } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const Navigation = ({ activeTab, onTabChange }) => {
@@ -6,6 +6,7 @@ const Navigation = ({ activeTab, onTabChange }) => {
 
     const tabs = [
         { id: 'home', icon: Home, label: 'الرئيسية' },
+        { id: 'guide', icon: BookOpen, label: 'شرح الموقع' },  // Added Guide here
         { id: 'journey', icon: Map, label: 'رحلتنا' },
         { id: 'feelings', icon: Heart, label: 'مشاعرنا' },
         { id: 'messages', icon: ({ color, size }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>, label: 'رسايلنا' },

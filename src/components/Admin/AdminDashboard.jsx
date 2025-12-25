@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
-import { LayoutDashboard, LogOut, Settings, RotateCw, AlertTriangle, Check, Shield, Smartphone, Globe, Clock, MapPin, Activity, Home, Menu, X, ChevronRight, MessageCircle } from 'lucide-react';
+import { useSiteStatus } from '../../context/SiteStatusContext';
+import { LayoutDashboard, LogOut, Settings, RotateCw, AlertTriangle, Check, Shield, Smartphone, Globe, Clock, MapPin, Activity, Home, Menu, X, ChevronRight, MessageCircle, Users, MessageSquare, Heart, Star, Image as ImageIcon, Music, PartyPopper, Gift, Eye, Trash2, Power, ShieldCheck, RefreshCcw, Lock, BookOpen } from 'lucide-react';
 import { usePresence } from '../../context/PresenceContext';
 
 // New Modular Components
@@ -18,6 +19,7 @@ import CouponsManager from './components/CouponsManager';
 import QuizManager from './components/QuizManager';
 import UserMonitorCard from './components/UserMonitorCard';
 import PostsMonitor from './components/PostsMonitor';
+import GuideManager from './components/GuideManager';
 
 
 // Toast Component
@@ -39,9 +41,26 @@ const AdminDashboard = () => {
     const [nadaStats, setNadaStats] = useState({ quizScore: 0, quizAnswers: {}, unlockedCount: 0 });
     const [availableUsers, setAvailableUsers] = useState([]);
 
-    // Tracking
     const { onlineUsers } = usePresence();
     const [allUserProfiles, setAllUserProfiles] = useState([]);
+    const [activityLogs, setActivityLogs] = useState([]);
+
+    useEffect(() => {
+        // Fetch logs
+        const fetchLogs = async () => {
+            const { data } = await supabase.from('app_status_logs').select('*').order('created_at', { ascending: false }).limit(20);
+            if (data) setActivityLogs(data);
+        };
+        fetchLogs();
+
+        const channel = supabase.channel('activity_logs_channel')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'app_status_logs' }, (payload) => {
+                setActivityLogs(prev => [payload.new, ...prev].slice(0, 20));
+            })
+            .subscribe();
+
+        return () => supabase.removeChannel(channel);
+    }, []);
 
     useEffect(() => {
         // Fetch all users for tracking monitor
@@ -80,6 +99,7 @@ const AdminDashboard = () => {
     const [showQuizDetails, setShowQuizDetails] = useState(false);
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [forceBlockingLink, setForceBlockingLink] = useState(false);
+    const [isRestartConfirming, setIsRestartConfirming] = useState(false);
 
     // Header Config
     const [adminConfig, setAdminConfig] = useState({
@@ -213,12 +233,14 @@ const AdminDashboard = () => {
     };
 
     // Navigation Tabs
+    const { isShutdown, shutdownStage, resetSite } = useSiteStatus();
     const [activeTab, setActiveTab] = useState('overview');
 
     // Import icons for sidebar
     const tabs = [
         { id: 'overview', label: 'نظرة عامة', icon: Activity },
         { id: 'posts', label: 'المنشورات', icon: MessageCircle },
+        { id: 'guide', label: 'شرح الموقع', icon: BookOpen },
         { id: 'gallery', label: 'الصور', icon: Globe }, // Use Image icon if available but Globe is imported
         { id: 'wishes', label: 'الأمنيات', icon: RotateCw }, // Todo: Import better icons
         { id: 'feelings', label: 'المشاعر', icon: Shield }, // Emotional Shield?
@@ -232,6 +254,88 @@ const AdminDashboard = () => {
             case 'overview':
                 return (
                     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        {/* --- Site Status Control --- */}
+                        <section className={`border rounded-3xl p-6 relative overflow-hidden transition-all duration-300 ${isShutdown ? 'bg-red-950/20 border-red-500/30' : 'bg-[#1a1a1a] border-white/5'}`}>
+                            <div className="flex justify-between items-center relative z-10">
+                                <div className="flex items-center gap-4">
+                                    <div className={`p-4 rounded-2xl ${isShutdown ? 'bg-red-500 text-white' : (shutdownStage > 0 ? 'bg-yellow-500 text-black' : 'bg-green-500/10 text-green-500')}`}>
+                                        {isShutdown ? <Power size={28} /> : (shutdownStage > 0 ? <AlertTriangle size={28} /> : <ShieldCheck size={28} />)}
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-bold text-white mb-1">
+                                            {isShutdown ? "⛔ الموقع متوقف (SHUTDOWN)" : (shutdownStage > 0 ? "⚠️ تحذير: محاولة إيقاف" : "✅ الموقع يعمل بشكل طبيعي")}
+                                        </h2>
+                                        <p className="text-sm opacity-70 flex items-center gap-2">
+                                            <span>المرحلة الحالية: </span>
+                                            <span className="font-mono bg-black/30 px-2 py-0.5 rounded text-gold">
+                                                {shutdownStage === 0 && "0 - مستقر"}
+                                                {shutdownStage === 1 && "1 - ضغطت زر الإيقاف"}
+                                                {shutdownStage === 2 && "2 - تجاوزت التحذير الأول"}
+                                                {shutdownStage === 3 && "3 - تم الإيقاف النهائي"}
+                                            </span>
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {shutdownStage > 0 && (
+                                    <div className="flex items-center gap-3">
+                                        <AnimatePresence mode="wait">
+                                            {isRestartConfirming ? (
+                                                <motion.button
+                                                    key="confirm"
+                                                    initial={{ opacity: 0, scale: 0.9 }}
+                                                    animate={{ opacity: 1, scale: 1 }}
+                                                    exit={{ opacity: 0, scale: 0.9 }}
+                                                    onClick={async () => {
+                                                        console.log("🚀 [Admin] Restart EXECUTION triggered!");
+                                                        try {
+                                                            setIsRestartConfirming(false);
+                                                            await resetSite();
+                                                            showToast("تم إعادة تشغيل الموقع بنجاح! 🚀", "success");
+                                                        } catch (err) {
+                                                            console.error("❌ [Admin] Restart failed:", err);
+                                                            showToast("عذراً، فشلت عملية إعادة التشغيل.", "error");
+                                                        }
+                                                    }}
+                                                    className="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95 border-2 border-red-400/50"
+                                                >
+                                                    <Check size={20} />
+                                                    تأكيد إعادة التشغيل؟
+                                                </motion.button>
+                                            ) : (
+                                                <motion.button
+                                                    key="initial"
+                                                    initial={{ opacity: 0, scale: 0.9 }}
+                                                    animate={{ opacity: 1, scale: 1 }}
+                                                    exit={{ opacity: 0, scale: 0.9 }}
+                                                    onClick={() => {
+                                                        console.log("🖱️ [Admin] Restart INITIAL click detected");
+                                                        setIsRestartConfirming(true);
+                                                        // Reset after 4 seconds
+                                                        setTimeout(() => setIsRestartConfirming(false), 4000);
+                                                    }}
+                                                    className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95 group"
+                                                >
+                                                    <RefreshCcw size={20} className="group-active:rotate-180 transition-transform duration-500" />
+                                                    إعادة تشغيل الموقع
+                                                </motion.button>
+                                            )}
+                                        </AnimatePresence>
+
+                                        {isRestartConfirming && (
+                                            <button
+                                                onClick={() => setIsRestartConfirming(false)}
+                                                className="p-3 text-gray-400 hover:text-white transition-colors"
+                                                title="إلغاء"
+                                            >
+                                                <X size={20} />
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+
                         {/* 0. Monitoring Section */}
                         <section className="bg-[#1a1a1a] border border-white/5 rounded-3xl p-6 relative overflow-hidden group hover:border-gold/20 transition-all duration-300">
                             <div className="absolute top-0 right-0 w-64 h-64 bg-green-500/5 rounded-full blur-[80px] -mr-32 -mt-32 pointer-events-none" />
@@ -266,7 +370,47 @@ const AdminDashboard = () => {
                             </div>
                         </section>
 
-                        {/* 1. Stats Section */}
+                        {/* 1. Activity Logs Section */}
+                        <section className="bg-[#1a1a1a] border border-white/5 rounded-3xl p-6 relative overflow-hidden group hover:border-gold/20 transition-all duration-300">
+                            <div className="flex items-center justify-between mb-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-3 bg-gold/10 rounded-2xl text-gold">
+                                        <Clock size={24} />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-bold text-white">سجل النشاط</h2>
+                                        <p className="text-xs text-gray-500 font-mono">System Audit Log</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                {activityLogs.length === 0 ? (
+                                    <div className="text-center py-10 text-gray-600 italic">لا يوجد سجلات حتى الآن</div>
+                                ) : (
+                                    activityLogs.map((log) => (
+                                        <div key={log.id} className="flex items-start gap-4 p-4 bg-black/40 rounded-2xl border border-white/5 hover:border-white/10 transition-colors">
+                                            <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${log.action_type === 'nada_restore' ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' :
+                                                log.action_type === 'admin_reset' ? 'bg-blue-500' :
+                                                    log.action_type === 'shutdown_final' ? 'bg-red-500' : 'bg-gray-500'
+                                                }`} />
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <span className={`text-xs font-bold uppercase tracking-wider ${log.performed_by_role === 'admin' ? 'text-blue-400' : 'text-gold'
+                                                        }`}>
+                                                        {log.performed_by_role === 'admin' ? 'حسانين' : 'ندى'}
+                                                    </span>
+                                                    <span className="text-xs text-gray-400 font-mono dir-ltr">{formatTime(log.created_at)}</span>
+                                                </div>
+                                                <p className="text-sm text-gray-300 line-clamp-2">{log.details}</p>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </section>
+
+                        {/* 2. Stats Section */}
                         <section className="bg-[#1a1a1a] border border-white/5 rounded-3xl p-6">
                             <div className="flex items-center gap-3 mb-6">
                                 <div className="p-3 bg-gold/10 rounded-2xl text-gold">
@@ -327,6 +471,12 @@ const AdminDashboard = () => {
                         <CouponsManager onToast={showToast} />
                     </div>
                 );
+            case 'guide':
+                return (
+                    <div className="bg-[#1a1a1a] border border-white/5 rounded-3xl p-6 min-h-[500px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <GuideManager />
+                    </div>
+                );
             default: return null;
         }
     };
@@ -368,7 +518,9 @@ const AdminDashboard = () => {
                         <Home size={20} />
                     </button>
                     <button onClick={() => setShowProfileModal(true)} className="flex items-center gap-3 bg-[#1a1a1a] hover:bg-[#222] border border-white/5 rounded-full p-1 pr-4 transition group">
-                        <span className="text-sm font-bold group-hover:text-gold transition hidden md:block">{adminConfig.nickname}</span>
+                        <span className="text-sm font-bold group-hover:text-gold transition hidden md:block">
+                            {isShutdown ? (adminConfig.isMale ? 'بشمهندس حسانين ❤️' : 'ندى ❤️') : adminConfig.nickname}
+                        </span>
                         <div className="w-10 h-10 rounded-full bg-gray-800 overflow-hidden border border-gold/20 flex items-center justify-center relative shadow-lg">
                             {adminConfig.image ? <img src={adminConfig.image} className="w-full h-full object-cover" /> : (adminConfig.isMale ? '👑' : '👸')}
                             <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-[#1a1a1a] rounded-full"></div>

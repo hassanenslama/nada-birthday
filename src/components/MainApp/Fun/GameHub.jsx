@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Gamepad2, Heart, Puzzle, Palette, X, ChevronRight, UserPlus, CheckCheck } from 'lucide-react';
 import { supabase } from '../../../supabase';
 import { useAuth } from '../../../context/AuthContext';
+import { useSiteStatus } from '../../../context/SiteStatusContext';
 import { useBackButton } from '../../../context/BackButtonContext';
 import MemoryPuzzle from './MemoryPuzzle';
 // Placeholder imports for games we will build next
@@ -51,6 +52,7 @@ const GAMES = [
 
 const GameHub = () => {
     const { currentUser } = useAuth();
+    const { isShutdown } = useSiteStatus();
     const [selectedGame, setSelectedGame] = useState(null);
     const [inviting, setInviting] = useState(false);
     const [inviteSent, setInviteSent] = useState(false);
@@ -127,7 +129,7 @@ const GameHub = () => {
     };
 
     return (
-        <div className="flex flex-col h-full relative overflow-hidden">
+        <div className={`flex flex-col h-full relative overflow-hidden transition-all duration-500 ${isShutdown ? 'grayscale' : ''}`}>
             {/* Background Effects */}
             <div className="fixed inset-0 pointer-events-none">
                 <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-purple-900/10 blur-[120px] rounded-full" />
@@ -155,8 +157,9 @@ const GameHub = () => {
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: index * 0.1 }}
-                                    onClick={() => handleSelectGame(game)}
-                                    className="relative group overflow-hidden rounded-2xl border border-white/10 p-1"
+                                    onClick={() => !isShutdown && handleSelectGame(game)}
+                                    disabled={isShutdown}
+                                    className={`relative group overflow-hidden rounded-2xl border border-white/10 p-1 ${isShutdown ? 'cursor-not-allowed opacity-50' : ''}`}
                                 >
                                     <div className={`absolute inset-0 bg-gradient-to-r ${game.color} opacity-10 group-hover:opacity-20 transition-opacity`} />
 
@@ -172,8 +175,8 @@ const GameHub = () => {
 
                                         {game.isMultiplayer && (
                                             <div className="px-2 py-1 rounded-md bg-white/5 border border-white/10">
-                                                <span className="text-[10px] text-green-400 font-mono flex items-center gap-1">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                                <span className={`text-[10px] font-mono flex items-center gap-1 ${isShutdown ? 'text-gray-500' : 'text-green-400'}`}>
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${isShutdown ? 'bg-gray-500' : 'bg-green-500 animate-pulse'}`} />
                                                     LIVE
                                                 </span>
                                             </div>

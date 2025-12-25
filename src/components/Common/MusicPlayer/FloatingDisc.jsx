@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Disc, Music, Volume2, Volume1, VolumeX, SkipForward, SkipBack, Pause, Play, ListMusic, X, User } from 'lucide-react';
 import { useMusic } from '../../../context/MusicContext';
 import { useAuth } from '../../../context/AuthContext';
+import { useSiteStatus } from '../../../context/SiteStatusContext';
 
 const FloatingDisc = () => {
     const {
@@ -13,9 +14,21 @@ const FloatingDisc = () => {
         playTrack,
         volume,
         setVolume,
+        currentTime,
+        duration,
+        seekTo,
         isPermanentlyDisabled,
         showPlayer
     } = useMusic();
+
+    const formatTime = (seconds) => {
+        if (isNaN(seconds)) return '0:00';
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    };
+
+    const { isShutdown } = useSiteStatus();
 
     const [showMenu, setShowMenu] = useState(false);
     const longPressTimerRef = useRef(null);
@@ -49,7 +62,7 @@ const FloatingDisc = () => {
             {/* The Floating Disc */}
             {/* The Floating Disc */}
             <motion.div
-                className="fixed bottom-24 left-4 z-[50] cursor-pointer group"
+                className={`fixed bottom-24 left-4 z-[50] cursor-pointer group ${isShutdown ? 'grayscale' : ''}`}
 
                 // Unified Pointer Events (Handles Touch & Mouse better)
                 onPointerDown={handleMouseDown}
@@ -108,11 +121,48 @@ const FloatingDisc = () => {
                             initial={{ opacity: 0, scale: 0.8, x: -50, y: 50 }}
                             animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
                             exit={{ opacity: 0, scale: 0.8, x: -50, y: 50 }}
-                            className="fixed bottom-48 left-4 z-[60] w-72 bg-[#1a1a1a]/95 backdrop-blur-xl border border-gold/20 rounded-2xl shadow-2xl overflow-hidden p-4"
+                            className={`fixed bottom-48 left-4 z-[60] w-72 bg-[#1a1a1a]/95 backdrop-blur-xl border border-gold/20 rounded-2xl shadow-2xl overflow-hidden p-4 ${isShutdown ? 'grayscale' : ''}`}
                         >
                             <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-2">
-                                <h3 className="text-gold font-bold flex items-center gap-2"><Music size={16} /> الموسيقى</h3>
+                                <h3 className="text-gold font-bold flex items-center gap-2">
+                                    <Music size={16} /> الموسيقى <span className="text-xs font-normal text-gray-500">({playlist.length})</span>
+                                </h3>
                                 <button onClick={() => setShowMenu(false)} className="text-gray-400 hover:text-white"><X size={16} /></button>
+                            </div>
+
+                            {/* Professional Seekbar / Progress Control */}
+                            <div className="space-y-1 mb-4" dir="ltr">
+                                <div className="flex justify-between text-[10px] font-mono text-gray-500 mb-0.5">
+                                    <span>{formatTime(currentTime)}</span>
+                                    <span>{formatTime(duration)}</span>
+                                </div>
+                                <div
+                                    className="relative h-2 bg-gray-700 rounded-full cursor-pointer group/progress"
+                                    onPointerDown={(e) => {
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+                                        const seekToTime = (x / rect.width) * duration;
+                                        seekTo(seekToTime);
+                                        e.currentTarget.setPointerCapture(e.pointerId);
+                                    }}
+                                    onPointerMove={(e) => {
+                                        if (e.buttons === 1) {
+                                            const rect = e.currentTarget.getBoundingClientRect();
+                                            const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+                                            const seekToTime = (x / rect.width) * duration;
+                                            seekTo(seekToTime);
+                                        }
+                                    }}
+                                >
+                                    <div
+                                        className="absolute top-0 left-0 h-full bg-gold rounded-full transition-all duration-75"
+                                        style={{ width: `${(currentTime / duration) * 100}%` }}
+                                    ></div>
+                                    <div
+                                        className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg opacity-0 group-hover/progress:opacity-100 transition-opacity"
+                                        style={{ left: `calc(${(currentTime / duration) * 100}% - 6px)` }}
+                                    ></div>
+                                </div>
                             </div>
 
                             {/* Professional Volume Control - Custom Physical Implementation */}

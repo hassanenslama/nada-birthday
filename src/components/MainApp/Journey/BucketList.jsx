@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../supabase';
 import { useAuth } from '../../../context/AuthContext';
+import { useSiteStatus } from '../../../context/SiteStatusContext';
 import { Send, Loader2, PartyPopper, AlertTriangle } from 'lucide-react';
 import WishItem from './WishItem';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
@@ -31,6 +32,7 @@ const SortableWishItem = ({ item, index, onUpdate, onDelete }) => {
 
 const BucketList = () => {
     const { userRole } = useAuth();
+    const { isShutdown } = useSiteStatus();
     const [wishes, setWishes] = useState([]);
     const [newItemText, setNewItemText] = useState('');
     const [isLoading, setIsLoading] = useState(true);
@@ -179,7 +181,7 @@ const BucketList = () => {
     const progress = wishes.length > 0 ? Math.round((completedCount / wishes.length) * 100) : 0;
 
     return (
-        <div className="p-4 sm:p-6 pb-20 min-h-[60vh]">
+        <div className={`p-4 sm:p-6 pb-20 min-h-[60vh] transition-all duration-500 ${isShutdown ? 'grayscale' : ''}`}>
 
             {/* Header Stats */}
             <div className="text-center mb-4 relative">
@@ -230,7 +232,7 @@ const BucketList = () => {
                     <p className="text-white font-bold mb-1">عذراً، قاعدة البيانات غير جاهزة</p>
                     <p className="text-red-300 text-xs font-mono">يرجى تشغيل ملف create_wishes_table.sql</p>
                 </div>
-            ) : (
+            ) : !isShutdown && (
                 <div className="max-w-2xl mx-auto mb-6 relative z-20">
                     <form onSubmit={handleAddWish} className="relative group">
                         <div className="absolute -inset-1 bg-gradient-to-r from-gold via-orange-500 to-gold rounded-2xl opacity-20 group-hover:opacity-40 transition duration-500 blur-sm"></div>

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, Sparkles } from 'lucide-react';
+import { Heart, Sparkles, Power, AlertTriangle, ShieldAlert, Lock } from 'lucide-react';
 import { TARGET_DATE } from '../config';
 import PrankButton from './PrankButton';
 import CharacterReveal from './CharacterReveal';
+import { useSiteStatus } from '../context/SiteStatusContext';
 
 const WHISPERS = [
     "كل ثانية بتعدي.. بتزيد غلاوتك ❤️",
@@ -18,11 +19,27 @@ const WHISPERS = [
 ];
 
 const Teaser = ({ onUnlock }) => {
+    const { isShutdown, shutdownStage, restorationUsed, updateStage, restoreSite } = useSiteStatus();
     const [timeLeft, setTimeLeft] = useState(calculateTimeLeft());
     const [whisperIndex, setWhisperIndex] = useState(0);
-    const [direction, setDirection] = useState('ltr'); // Track animation direction
+    const [direction, setDirection] = useState('ltr');
+    const [showShutdownModal, setShowShutdownModal] = useState(false);
+    const [localStage, setLocalStage] = useState(0);
+    const [toast, setToast] = useState(null);
 
-    // Prank Button State moved to PrankButton component
+    const showToast = (msg) => {
+        setToast(msg);
+        setTimeout(() => setToast(null), 5000);
+    };
+
+    const handleRestore = async () => {
+        try {
+            await restoreSite();
+            showToast("كل حاجه رجعت تاني في الموقع زي ما كانت ويارب لو متخانقين نتصالح ❤️");
+        } catch (err) {
+            console.error("Restore failed:", err);
+        }
+    };
 
     function calculateTimeLeft() {
         const difference = +TARGET_DATE - +new Date();
@@ -41,8 +58,11 @@ const Teaser = ({ onUnlock }) => {
         return timeLeft;
     }
 
-    // Optimized timer with RAF to prevent stuttering
     useEffect(() => {
+        // If shutdown, we stop the timer locally or just show 00:00:00? 
+        // User said "Stop the counter". So we can just clear it or freeze it.
+        if (isShutdown) return;
+
         let rafId;
         let lastUpdate = Date.now();
 
@@ -62,26 +82,45 @@ const Teaser = ({ onUnlock }) => {
 
         rafId = requestAnimationFrame(tick);
         return () => cancelAnimationFrame(rafId);
-    }, [onUnlock]);
+    }, [onUnlock, isShutdown]);
 
     useEffect(() => {
         const interval = setInterval(() => {
             setWhisperIndex((prev) => (prev + 1) % WHISPERS.length);
-            setDirection(prev => prev === 'ltr' ? 'rtl' : 'ltr'); // Alternate direction
+            setDirection(prev => prev === 'ltr' ? 'rtl' : 'ltr');
         }, 4000);
         return () => clearInterval(interval);
     }, []);
 
-    // moveButton logic moved to PrankButton component
+    const handleStopClick = () => {
+        if (isShutdown) return;
+        setLocalStage(1);
+        setShowShutdownModal(true);
+    };
 
-    if (!timeLeft) return null;
+    const handleConfirmShutdown = async () => {
+        if (localStage === 1) {
+            setLocalStage(2);
+            // We can optionally update server stage here to track "She clicked stage 1"
+            updateStage(1, false);
+        } else if (localStage === 2) {
+            setLocalStage(3);
+            updateStage(2, false);
+        } else if (localStage === 3) {
+            setShowShutdownModal(false);
+            // Final Blow
+            updateStage(3, true);
+        }
+    };
+
+    if (!timeLeft && !isShutdown) return null;
 
     return (
-        <div className="fixed inset-0 w-full h-full flex flex-col items-center justify-center bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-maroon via-[#2a0a12] to-black text-rosegold overflow-hidden selection:bg-gold selection:text-black touch-none">
+        <div className={`fixed inset-0 w-full h-full flex flex-col items-center justify-between bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-maroon via-[#2a0a12] to-black text-rosegold overflow-hidden selection:bg-gold selection:text-black touch-none py-10 ${isShutdown ? 'grayscale-[100%] brightness-50' : ''}`}>
 
-            {/* 1. Gold Dust Particles */}
+            {/* Background Effects */}
             <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none z-0">
-                {[...Array(30)].map((_, i) => (
+                {!isShutdown && [...Array(30)].map((_, i) => (
                     <div
                         key={i}
                         className="absolute bg-gold rounded-full opacity-40 animate-pulse"
@@ -96,60 +135,202 @@ const Teaser = ({ onUnlock }) => {
                 ))}
             </div>
 
-            {/* 2. Pulsing Heart Background */}
-            <motion.div
-                animate={{ scale: [1, 1.05, 1], opacity: [0.1, 0.15, 0.1] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute pointer-events-none z-0 flex items-center justify-center"
-            >
-                <Heart className="w-[80vw] h-[80vw] md:w-[600px] md:h-[600px]" fill="#800020" stroke="none" />
-            </motion.div>
-
-            {/* 3. Main Content */}
-            <div className="z-10 flex flex-col items-center gap-6 md:gap-12 text-center relative w-full p-6">
-
-                {/* Title: Signature Font */}
+            {/* Pulsing Heart (Hidden if Shutdown or Stopped?) User said "Stop Counter", didn't say kill bg, but gray filter does it. */}
+            {!isShutdown && (
                 <motion.div
+                    animate={{ scale: [1, 1.05, 1], opacity: [0.1, 0.15, 0.1] }}
+                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                    className="absolute pointer-events-none z-0 flex items-center justify-center top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+                >
+                    <Heart className="w-[80vw] h-[80vw] md:w-[600px] md:h-[600px]" fill="#800020" stroke="none" />
+                </motion.div>
+            )}
+
+
+            {/* --- TOP SECTION: Counter & Label --- */}
+            <div className="z-10 flex flex-col items-center gap-4 pt-4 md:pt-10 w-full">
+                <motion.h2
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="relative"
+                    className="text-gold/80 font-cairo text-lg md:text-2xl tracking-widest font-bold"
                 >
-                    <Sparkles className="absolute -top-6 -right-12 text-gold opacity-70 animate-pulse w-8 h-8 md:w-12 md:h-12" />
-                    <h1 className="text-7xl md:text-[8rem] bg-clip-text text-transparent bg-gradient-to-b from-[#F7E7CE] via-[#D4AF37] to-[#800020] drop-shadow-[0_0_30px_rgba(197,160,89,0.5)] font-signature pb-8 pt-4 leading-none transform -rotate-2">
-                        Nada
-                    </h1>
-                    <Sparkles className="absolute -bottom-4 -left-12 text-gold opacity-70 animate-pulse w-6 h-6 md:w-10 md:h-10" />
-                </motion.div>
+                    بقالنا مع بعض
+                </motion.h2>
 
                 {/* Flip Clock Timer */}
-                <div className="flex gap-3 md:gap-6 rtl:flex-row-reverse transform scale-90 md:scale-100 items-start justify-center">
-                    <FlipUnit value={timeLeft.days} label="أيام" />
-                    <FlipUnit value={timeLeft.hours} label="ساعات" />
-                    <FlipUnit value={timeLeft.minutes} label="دقائق" />
-                    <FlipUnit value={timeLeft.seconds} label="ثواني" />
+                <div className="flex gap-3 md:gap-6 rtl:flex-row-reverse transform scale-90 md:scale-100 items-start justify-center mt-2">
+                    <FlipUnit value={isShutdown ? 0 : timeLeft?.days || 0} label="أيام" isFrozen={isShutdown} />
+                    <FlipUnit value={isShutdown ? 0 : timeLeft?.hours || 0} label="ساعات" isFrozen={isShutdown} />
+                    <FlipUnit value={isShutdown ? 0 : timeLeft?.minutes || 0} label="دقائق" isFrozen={isShutdown} />
+                    <FlipUnit value={isShutdown ? 0 : timeLeft?.seconds || 0} label="ثواني" isFrozen={isShutdown} />
                 </div>
+            </div>
 
-                {/* Character-by-Character Reveal Animation */}
-                <div className="h-24 flex items-center justify-center w-full min-w-[300px] max-w-[90vw] z-20 overflow-hidden">
-                    <AnimatePresence mode='wait'>
-                        <CharacterReveal
-                            key={whisperIndex}
-                            text={WHISPERS[whisperIndex]}
-                            direction={direction}
+
+            {/* --- REFRESH BUTTON (Top Left) --- */}
+            <motion.button
+                whileHover={{ scale: 1.1, rotate: 180 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => window.location.reload()}
+                className="fixed top-6 left-6 z-[60] p-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-gray-400 hover:text-white transition-all backdrop-blur-md"
+                title="تحديث الصفحة"
+            >
+                <RotateCw size={18} />
+            </motion.button>
+
+            {/* --- MIDDLE SECTION: Stop Button --- */}
+            <div className="z-20 flex flex-col items-center justify-center gap-6">
+                {!isShutdown ? (
+                    <button
+                        onClick={handleStopClick}
+                        className="group relative px-6 py-3 bg-red-900/20 border border-red-500/30 rounded-full hover:bg-red-900/40 hover:border-red-500/60 transition-all duration-500 flex items-center gap-3 backdrop-blur-sm"
+                    >
+                        <Power size={20} className="text-red-500 group-hover:text-red-400 group-hover:scale-110 transition-transform" />
+                        <span className="text-red-400 font-bold text-sm tracking-wide">إيقاف العداد</span>
+                        <span className="absolute -right-2 -top-2 w-3 h-3 bg-red-500 rounded-full animate-ping"></span>
+
+                        <div className="absolute inset-0 rounded-full bg-red-500/10 blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    </button>
+                ) : (
+                    <div className="flex flex-col items-center gap-6">
+                        <div className="flex flex-col items-center gap-2 text-gray-500">
+                            <Lock size={32} />
+                            <span className="font-mono text-xs tracking-widest">SYSTEM HALTED</span>
+                        </div>
+
+                        {/* Restoration Button (Show if not used yet) */}
+                        {!restorationUsed && (
+                            <motion.button
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={handleRestore}
+                                className="group px-8 py-4 bg-gradient-to-r from-gold/20 via-gold/10 to-gold/20 hover:from-gold/30 hover:to-gold/30 border border-gold/30 rounded-2xl shadow-[0_0_30px_rgba(197,160,89,0.1)] backdrop-blur-md transition-all flex flex-col items-center gap-1"
+                            >
+                                <span className="text-gold font-bold text-lg">تقدري ترجعي كل حاجه من تاني من هنا ❤️</span>
+                                <span className="text-[10px] text-gold/40 font-medium">اضغطي هنا لاستعادة الموقع فوراً</span>
+                            </motion.button>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* Prank Button (Keeping it but maybe suppressed if shutdown?) */}
+            {!isShutdown && <PrankButton />}
+
+
+            {/* --- BOTTOM SECTION: Titles --- */}
+            <div className="z-10 flex flex-col items-center text-center pb-8 md:pb-12 px-6 w-full">
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="relative flex flex-col items-center gap-2"
+                >
+                    <h1 className="text-5xl md:text-7xl bg-clip-text text-transparent bg-gradient-to-b from-[#F7E7CE] via-[#D4AF37] to-[#800020] drop-shadow-[0_0_30px_rgba(197,160,89,0.3)] font-signature leading-tight">
+                        نورتي دنيتي يا ندى
+                    </h1>
+                    <p className="text-sm md:text-lg text-white/60 font-medium flex items-center gap-2">
+                        <Heart size={14} className="text-red-500 fill-red-500 animate-pulse" />
+                        وجودك هو أعظم نعمة في حياتي
+                    </p>
+                </motion.div>
+
+                {/* Character Reveal Wrapper */}
+                {!isShutdown && (
+                    <div className="h-12 mt-6 flex items-center justify-center w-full min-w-[300px] max-w-[90vw] overflow-hidden opacity-80">
+                        <AnimatePresence mode='wait'>
+                            <CharacterReveal
+                                key={whisperIndex}
+                                text={WHISPERS[whisperIndex]}
+                                direction={direction}
+                            />
+                        </AnimatePresence>
+                    </div>
+                )}
+            </div>
+
+
+            {/* --- MODALS --- */}
+            <AnimatePresence>
+                {showShutdownModal && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+                        <motion.div
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-black/90 backdrop-blur-md"
+                            onClick={() => setShowShutdownModal(false)}
                         />
-                    </AnimatePresence>
-                </div>
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+                            className="bg-[#1a0505] border border-red-900/50 rounded-2xl p-8 max-w-md w-full relative z-10 shadow-[0_0_50px_rgba(255,0,0,0.1)] text-center"
+                        >
+                            <div className="mb-6 flex justify-center">
+                                <div className="p-4 bg-red-500/10 rounded-full ring-1 ring-red-500/30">
+                                    {localStage === 1 && <Power size={32} className="text-red-500" />}
+                                    {localStage === 2 && (restorationUsed ? <ShieldAlert size={32} className="text-red-600 animate-bounce" /> : <ShieldAlert size={32} className="text-red-500" />)}
+                                    {localStage === 3 && (restorationUsed ? <AlertTriangle size={32} className="text-red-600 animate-pulse" /> : <AlertTriangle size={32} className="text-red-500 animate-pulse" />)}
+                                </div>
+                            </div>
 
-                <div className="h-20 w-full" aria-hidden="true"></div>
-            </div>
+                            <h3 className="text-xl font-bold text-red-100 mb-2">
+                                {localStage === 1 && "هل أنتي متأكدة؟"}
+                                {localStage === 2 && (restorationUsed ? "تحذير: قرار لا يمكن الرجوع فيه!" : "لحظة من فضلك..")}
+                                {localStage === 3 && (restorationUsed ? "المرة دي مفيش رجوع نهائياً!" : "قرار نهائي وخطير!")}
+                            </h3>
 
-            {/* 4. Optimized Prank Button (Isolated Component) */}
-            <PrankButton />
+                            <div className="text-red-200/70 text-sm leading-relaxed mb-8 space-y-4">
+                                <p>
+                                    {localStage === 1 && "هل أنتي متأكدة أن كل شيء قد انتهى؟ الضغط هنا سيبدأ في إيقاف الموقع."}
+                                    {localStage === 2 && (restorationUsed
+                                        ? "انتي استهلكتي الفرصة التانية للاستعادة قبل كده. لو أكدتي المرة دي، الموقع هيتقفل للأبد ومش هيظهرلك زرار الرجوع تاني."
+                                        : "لربما هذا آخر ما تبقى من الأمل بيننا.. فلا تقطعيه 💔")}
+                                    {localStage === 3 && (restorationUsed
+                                        ? "دوستك الجاية هتنهي كل ذرات الأمل.. الموقع هيتحول لذكرى رمادية للأبد. هل فعلاً ده اللي عاوزاه؟"
+                                        : "في حالة دوستي تأكيد، سوف يتم إيقاف الأجزاء الحيوية في الموقع مثل الكوبونات ومشاعرنا ورحلتنا.. وسيتحول كل شيء للرمادي.")}
+                                </p>
 
-            {/* Footer */}
-            <div className="absolute bottom-6 opacity-80 text-lg md:text-xl tracking-[0.1em] text-[#D4AF37] font-signature z-0">
-                صنع بكل الحب ❤️
-            </div>
+                                {restorationUsed && localStage >= 2 && (
+                                    <div className="py-2 px-3 bg-red-600/10 border border-red-600/30 rounded-xl">
+                                        <p className="text-red-500 font-bold text-[11px]">
+                                            ⚠️ تنبيه: تم استخدام فرصة الاستعادة مسبقاً. الإيقاف الآن سيكون دائماً ولن تظهر أي خيارات للرجوع.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setShowShutdownModal(false)}
+                                    className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-gray-300 font-bold transition-colors"
+                                >
+                                    تراجع
+                                </button>
+                                <button
+                                    onClick={handleConfirmShutdown}
+                                    className="flex-1 py-3 bg-red-900 hover:bg-red-800 text-red-100 rounded-xl font-bold border border-red-700 shadow-lg shadow-red-900/20 transition-all active:scale-95"
+                                >
+                                    {localStage === 3 ? (restorationUsed ? "أنا متأكدة.. اقفله للأبد" : "أنا متأكدة من قراري") : "نعم، متأكدة"}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Success Toast */}
+            <AnimatePresence>
+                {toast && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 50 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 50 }}
+                        className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[150] px-8 py-4 bg-green-500 text-white rounded-2xl shadow-2xl font-bold text-center border-2 border-green-400/50 backdrop-blur-xl"
+                    >
+                        {toast}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
         </div>
     );
 };

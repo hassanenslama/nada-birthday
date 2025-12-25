@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Grid, FolderOpen, ArrowRight, Loader } from 'lucide-react';
+import { Plus, Grid, FolderOpen, ArrowRight, Loader, HeartCrack } from 'lucide-react';
 import { supabase } from '../../../supabase';
 import { useAuth } from '../../../context/AuthContext';
+import { useSiteStatus } from '../../../context/SiteStatusContext';
 import AlbumCard from './AlbumCard';
 import PhotoGrid from './PhotoGrid';
 import UploadModal from './UploadModal';
@@ -13,6 +14,7 @@ import { timelineData } from '../../../data/timeline';
 
 const MemoriesGallery = () => {
     const { userRole, currentUser } = useAuth(); // Need currentUser for fetching unlocks
+    const { isShutdown } = useSiteStatus();
     const isAdmin = userRole === 'admin';
 
     // View State: 'albums' | 'grid'
@@ -223,9 +225,9 @@ const MemoriesGallery = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] text-white p-4 pb-20 md:p-8">
+        <div className={`min-h-screen bg-[#0a0a0a] text-white p-4 pb-20 md:p-8 transition-all duration-500 ${isShutdown ? 'grayscale' : ''}`}>
             {/* Header */}
-            <div className="flex items-center justify-between mb-8 sticky top-0 bg-[#0a0a0a]/80 backdrop-blur-md z-40 py-4 border-b border-white/5">
+            <div className={`flex items-center justify-between mb-8 sticky top-0 bg-[#0a0a0a]/80 backdrop-blur-md z-40 py-4 border-b border-white/5 ${isShutdown ? 'grayscale' : ''}`}>
                 <div className="flex items-center gap-4">
                     {viewMode === 'grid' && (
                         <button
@@ -249,20 +251,31 @@ const MemoriesGallery = () => {
 
                 <div className="flex gap-2">
                     <button
-                        onClick={() => setIsCreateAlbumOpen(true)}
-                        className="bg-white/5 text-white hover:bg-white/10 transition-all px-4 py-2 rounded-xl flex items-center gap-2 font-bold font-cairo text-sm border border-white/10"
+                        onClick={() => !isShutdown && setIsCreateAlbumOpen(true)}
+                        disabled={isShutdown}
+                        className={`bg-white/5 text-white transition-all px-4 py-2 rounded-xl flex items-center gap-2 font-bold font-cairo text-sm border border-white/10 ${isShutdown ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/10'}`}
                     >
                         <Plus size={18} />
                         <span className="hidden md:inline">ألبوم جديد</span>
                     </button>
 
-                    <button
-                        onClick={() => setIsUploadOpen(true)}
-                        className="bg-gold/10 text-gold hover:bg-gold hover:text-black transition-all px-4 py-2 rounded-xl flex items-center gap-2 font-bold font-cairo text-sm border border-gold/20"
-                    >
-                        <Plus size={18} />
-                        <span className="hidden md:inline">إضافة ذكرى</span>
-                    </button>
+                    {isShutdown ? (
+                        <button
+                            disabled
+                            className="bg-gray-800 text-gray-500 px-4 py-2 rounded-xl flex items-center gap-2 font-bold font-cairo text-sm border border-gray-700 cursor-not-allowed"
+                        >
+                            <HeartCrack size={18} />
+                            <span className="hidden md:inline">معدش بينا ذكريات 💔</span>
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => setIsUploadOpen(true)}
+                            className="bg-gold/10 text-gold hover:bg-gold hover:text-black transition-all px-4 py-2 rounded-xl flex items-center gap-2 font-bold font-cairo text-sm border border-gold/20"
+                        >
+                            <Plus size={18} />
+                            <span className="hidden md:inline">إضافة ذكرى</span>
+                        </button>
+                    )}
                 </div>
             </div>
 

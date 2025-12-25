@@ -13,6 +13,7 @@ import NotificationSystem from './NotificationSystem';
 import NotificationsPanel from './NotificationsPanel';
 import CouponsPage from './CouponsPage';
 import PostsPage from './Posts/PostsPage';
+import GuidePage from './Guide/GuidePage';
 
 import { usePresence } from '../../context/PresenceContext';
 import { useEffect } from 'react';
@@ -36,6 +37,7 @@ const MainApp = () => {
             case 'fun': return 'في الترفيه';
             case 'admin': return 'في لوحة التحكم';
             case 'settings': return 'في الإعدادات';
+            case 'guide': return 'يقرأ شرح الموقع';
             default: return 'يتصفح الموقع';
         }
     };
@@ -46,7 +48,7 @@ const MainApp = () => {
     useEffect(() => {
         const handleHashChange = () => {
             const hash = window.location.hash.replace('#', '');
-            const validTabs = ['home', 'journey', 'feelings', 'messages', 'posts', 'fun', 'coupons', 'admin', 'settings'];
+            const validTabs = ['home', 'journey', 'feelings', 'messages', 'posts', 'fun', 'coupons', 'admin', 'settings', 'guide'];
 
             // 1. Handle "Modal" hashes (e.g., admin-menu) by ignoring main tab switch
             if (hash.includes('-')) {
@@ -85,6 +87,7 @@ const MainApp = () => {
             case 'coupons': return <CouponsPage />;
             case 'admin': return <AdminDashboard />;
             case 'settings': return <SettingsPage />;
+            case 'guide': return <GuidePage />;
             default: return <HomePage />;
         }
     };

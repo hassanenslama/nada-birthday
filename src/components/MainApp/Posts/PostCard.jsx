@@ -1,20 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, Trash2, ExternalLink, Link as LinkIcon, MoreHorizontal, Share2, Edit2, Check, X } from 'lucide-react';
+import { MessageCircle, Trash2, ExternalLink, Link as LinkIcon, MoreHorizontal, Share2, Edit2, Check, X, Lock, Unlock } from 'lucide-react';
 import { supabase } from '../../../supabase';
 import { useAuth } from '../../../context/AuthContext';
+import { useSiteStatus } from '../../../context/SiteStatusContext';
 import ReactionButton from './ReactionButton';
 import CommentSection from './CommentSection';
 import ConfirmModal from './ConfirmModal';
 
-const PostCard = ({ post, onDelete, onUpdate, index }) => {
+const PostCard = ({ post, onDelete, onUpdate, index, onImageClick }) => {
     const { currentUser } = useAuth();
+    const { isShutdown } = useSiteStatus();
     const [likesCount, setLikesCount] = useState(0);
     const [dislikesCount, setDislikesCount] = useState(0);
     const [userReaction, setUserReaction] = useState(null);
     const [showComments, setShowComments] = useState(false);
     const [commentsCount, setCommentsCount] = useState(0);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [showPublicConfirm, setShowPublicConfirm] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(false);
 
     // Edit State
     const [isEditing, setIsEditing] = useState(false);
@@ -58,8 +62,20 @@ const PostCard = ({ post, onDelete, onUpdate, index }) => {
     }, [post.id]);
 
     const fetchCommentsCount = async () => {
-        const { count } = await supabase.from('post_comments').select('*', { count: 'exact', head: true }).eq('post_id', post.id);
-        setCommentsCount(count || 0);
+        // Fetch minimal data to calculate count correctly clientside based on rules
+        const { data } = await supabase
+            .from('post_comments')
+            .select('id, is_deleted, is_secret, user_id')
+            .eq('post_id', post.id);
+
+        if (data) {
+            // Rule 1: Not deleted
+            // Rule 2: Not secret OR (Secret AND It's mine)
+            const validCount = data.filter(c =>
+                !c.is_deleted && (!c.is_secret || c.user_id === currentUser.id)
+            ).length;
+            setCommentsCount(validCount);
+        }
     };
 
     const fetchReactions = async () => {
@@ -165,6 +181,24 @@ const PostCard = ({ post, onDelete, onUpdate, index }) => {
         if (onDelete) onDelete(post.id);
     };
 
+    const handleMakePublic = async () => {
+        try {
+            const { error } = await supabase
+                .from('posts')
+                .update({ is_secret: false })
+                .eq('id', post.id);
+
+            if (error) throw error;
+
+            // Notify parent to refresh or update
+            if (onDelete) onDelete(); // Refresh feed effectively
+            setShowPublicConfirm(false);
+        } catch (error) {
+            console.error('Error making post public:', error);
+            alert('حدث خطأ، حاول مرة أخرى.');
+        }
+    };
+
     const handleUpdate = async () => {
         if (!editContent.trim()) return;
 
@@ -214,7 +248,7 @@ const PostCard = ({ post, onDelete, onUpdate, index }) => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
-            className="group bg-[#121212]/80 backdrop-blur-xl rounded-3xl border border-white/5 hover:border-gold/20 transition-all duration-300 shadow-xl overflow-hidden"
+            className={`group bg-[#121212]/80 backdrop-blur-xl rounded-3xl border border-white/5 hover:border-gold/20 transition-all duration-300 shadow-xl overflow-hidden ${isShutdown && !post.is_secret ? 'grayscale' : ''}`}
         >
             <ConfirmModal
                 isOpen={showDeleteConfirm}
@@ -222,6 +256,16 @@ const PostCard = ({ post, onDelete, onUpdate, index }) => {
                 onConfirm={handleDelete}
                 title="حذف المنشور"
                 message="هل أنت متأكد أنك تريد حذف هذا المنشور؟ لا يمكن التراجع عن هذا الإجراء."
+            />
+
+            <ConfirmModal
+                isOpen={showPublicConfirm}
+                onClose={() => setShowPublicConfirm(false)}
+                onConfirm={handleMakePublic}
+                title="نشر المنشور"
+                message="هل أنت متأكد من أنك تريد عرض المنشور للجميع؟"
+                confirmText="نشر"
+                confirmColor="bg-green-600 hover:bg-green-700"
             />
 
             {/* Header */}
@@ -249,6 +293,11 @@ const PostCard = ({ post, onDelete, onUpdate, index }) => {
                         <h3 className="text-white font-bold text-base flex items-center gap-2">
                             {post.user_profiles?.display_name || 'مستخدم'}
                             {/* <span className="px-2 py-0.5 rounded-full bg-gold/10 text-gold text-[10px] font-normal border border-gold/20">مدير</span> */}
+                            {post.is_secret && (
+                                <span className="mr-2 px-2 py-0.5 rounded-full bg-[#2a0a10]/80 text-[#ff99ac] text-[10px] border border-[#800020]/50 flex items-center gap-1 shadow-sm">
+                                    <Lock size={10} /> سري
+                                </span>
+                            )}
                         </h3>
                         <span className="text-gray-500 text-xs mt-1 block font-medium">
                             {new Date(post.created_at).toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
@@ -260,6 +309,15 @@ const PostCard = ({ post, onDelete, onUpdate, index }) => {
                 <div className="flex items-center gap-1">
                     {post.user_id === currentUser.id && (
                         <>
+                            {post.is_secret && (
+                                <button
+                                    onClick={() => setShowPublicConfirm(true)}
+                                    className="p-2 text-[#ff99ac] hover:text-white hover:bg-[#800020]/20 rounded-full transition-all"
+                                    title="نشر للعامة"
+                                >
+                                    <Unlock size={18} />
+                                </button>
+                            )}
                             <button
                                 onClick={() => setIsEditing(!isEditing)}
                                 className="p-2 text-gray-500 hover:text-gold hover:bg-gold/10 rounded-full transition-all"
@@ -304,9 +362,21 @@ const PostCard = ({ post, onDelete, onUpdate, index }) => {
                     </div>
                 ) : (
                     displayContent && (
-                        <p className="text-gray-200 whitespace-pre-wrap leading-loose text-sm md:text-base font-medium opacity-90">
-                            {displayContent}
-                        </p>
+                        <>
+                            <p className="text-gray-200 whitespace-pre-wrap leading-loose text-sm md:text-base font-medium opacity-90">
+                                {isExpanded ? displayContent : (displayContent.length > 350 ? displayContent.slice(0, 350) + '...' : displayContent)}
+                            </p>
+                            {displayContent.length > 350 && (
+                                <div className="mt-2">
+                                    <button
+                                        onClick={() => setIsExpanded(!isExpanded)}
+                                        className="text-gold text-xs font-bold hover:underline hover:text-yellow-400 transition-colors flex items-center gap-1"
+                                    >
+                                        {isExpanded ? 'عرض أقل' : 'عرض المزيد...'}
+                                    </button>
+                                </div>
+                            )}
+                        </>
                     )
                 )}
             </div>
@@ -315,12 +385,12 @@ const PostCard = ({ post, onDelete, onUpdate, index }) => {
             {(post.image_url || youtubeId || tiktokId) && (
                 <div className="w-full bg-black/40 border-y border-white/5 backdrop-blur-sm">
                     {post.image_url && (
-                        <div className="w-full max-h-[600px] flex items-center justify-center p-1">
+                        <div className="w-full max-h-[600px] flex items-center justify-center p-1 cursor-pointer" onClick={() => !post.image_url.includes('/video/') && onImageClick(post.image_url)}>
                             {/* Check if Video or Image */}
                             {(post.image_url.includes('/video/') || post.image_url.endsWith('.mp4') || post.image_url.endsWith('.webm')) ? (
                                 <video src={post.image_url} controls loop playsInline className="max-w-full max-h-[500px] rounded-lg shadow-2xl" />
                             ) : (
-                                <img src={post.image_url} alt="Post" className="max-w-full max-h-[500px] object-contain rounded-lg shadow-2xl" />
+                                <img src={post.image_url} alt="Post" className="max-w-full max-h-[500px] object-contain rounded-lg shadow-2xl hover:brightness-110 transition-all" />
                             )}
                         </div>
                     )}
@@ -427,7 +497,6 @@ const PostCard = ({ post, onDelete, onUpdate, index }) => {
                     </motion.div>
                 )}
             </AnimatePresence>
-
         </motion.div>
     );
 };

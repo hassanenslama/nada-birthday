@@ -1,18 +1,22 @@
 import React, { useState, useRef } from 'react';
-import { Send, Image as ImageIcon, Loader2, X, Sparkles } from 'lucide-react';
+import { Send, Image as ImageIcon, Loader2, X, Sparkles, Lock, Unlock } from 'lucide-react';
 import { uploadToCloudinary } from '../../../utils/cloudinaryUpload';
 import { supabase } from '../../../supabase';
 import { useAuth } from '../../../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSiteStatus } from '../../../context/SiteStatusContext';
 
 const CreatePost = ({ onPostCreated }) => {
     const { currentUser } = useAuth();
+    const { isShutdown } = useSiteStatus();
     const [content, setContent] = useState('');
     const [image, setImage] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [userProfile, setUserProfile] = useState(null);
     const fileInputRef = useRef(null);
+
+    const [isSecret, setIsSecret] = useState(false);
 
     React.useEffect(() => {
         const fetchProfile = async () => {
@@ -61,12 +65,14 @@ const CreatePost = ({ onPostCreated }) => {
                 user_id: currentUser.id,
                 content: content,
                 image_url: imageUrl,
-                link_url: linkUrl
+                link_url: linkUrl,
+                is_secret: isSecret
             });
 
             if (error) throw error;
 
             setContent('');
+            setIsSecret(false); // Reset secret state
             clearImage();
             if (onPostCreated) onPostCreated();
 
@@ -82,10 +88,10 @@ const CreatePost = ({ onPostCreated }) => {
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="group relative bg-[#121212]/80 backdrop-blur-xl rounded-3xl p-5 border border-white/10 shadow-2xl hover:border-gold/30 transition-all duration-300 mb-10 overflow-hidden"
+            className={`group relative backdrop-blur-xl rounded-3xl p-5 border border-white/10 shadow-2xl hover:border-gold/30 transition-all duration-300 mb-10 overflow-hidden ${isSecret ? 'bg-[#2a0a10]/90 border-[#800020]/50' : `bg-[#121212]/80 ${isShutdown ? 'grayscale' : ''}`}`}
         >
             {/* Glow Effect */}
-            <div className="absolute -top-10 -right-10 w-32 h-32 bg-gold/10 rounded-full blur-[50px] group-hover:bg-gold/20 transition-all duration-500" />
+            <div className={`absolute -top-10 -right-10 w-32 h-32 rounded-full blur-[50px] transition-all duration-500 ${isSecret ? 'bg-[#800020]/20' : 'bg-gold/10 group-hover:bg-gold/20'}`} />
 
             <div className="relative flex gap-4">
                 <div className="relative">
@@ -93,7 +99,7 @@ const CreatePost = ({ onPostCreated }) => {
                         <img
                             src={userProfile.avatar_url}
                             alt="My Avatar"
-                            className="w-12 h-12 rounded-full object-cover border-2 border-gold/20 shadow-lg"
+                            className={`w-12 h-12 rounded-full object-cover shadow-lg ${isSecret ? 'border-2 border-[#800020]' : 'border-2 border-gold/20'}`}
                         />
                     ) : (
                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gold via-yellow-600 to-yellow-800 p-[2px] shadow-lg">
@@ -112,8 +118,8 @@ const CreatePost = ({ onPostCreated }) => {
                         <textarea
                             value={content}
                             onChange={(e) => setContent(e.target.value)}
-                            placeholder="شاركنا لحظاتك المميزة... 💭"
-                            className="w-full bg-white/5 hover:bg-white/10 focus:bg-white/10 rounded-2xl px-4 py-3 text-white placeholder-gray-500 resize-none outline-none min-h-[100px] text-sm border border-transparent focus:border-gold/30 transition-all duration-300 mb-2"
+                            placeholder={isSecret ? "هذا البوست لن يراه أحد غيرك... 🔒" : "شاركنا لحظاتك المميزة... 💭"}
+                            className={`w-full bg-white/5 hover:bg-white/10 focus:bg-white/10 rounded-2xl px-4 py-3 text-white placeholder-gray-500 resize-none outline-none min-h-[100px] text-sm border focus:border-opacity-50 transition-all duration-300 mb-2 ${isSecret ? 'border-[#800020]/50 focus:border-[#ff0040]' : 'border-transparent focus:border-gold/30'}`}
                         />
 
                         <AnimatePresence>
@@ -138,22 +144,36 @@ const CreatePost = ({ onPostCreated }) => {
                         </AnimatePresence>
 
                         <div className="flex justify-between items-center mt-4 pl-1">
-                            <button
-                                type="button"
-                                onClick={() => fileInputRef.current?.click()}
-                                className="flex items-center gap-2 text-gray-400 hover:text-gold transition-all duration-300 px-3 py-2 rounded-xl hover:bg-gold/10 group/btn"
-                            >
-                                <div className="p-1.5 rounded-lg bg-white/5 group-hover/btn:bg-gold/20 transition-colors">
-                                    <ImageIcon size={18} />
-                                </div>
-                                <span className="text-xs font-medium">صورة</span>
-                            </button>
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="flex items-center gap-2 text-gray-400 hover:text-gold transition-all duration-300 px-3 py-2 rounded-xl hover:bg-gold/10 group/btn"
+                                >
+                                    <div className="p-1.5 rounded-lg bg-white/5 group-hover/btn:bg-gold/20 transition-colors">
+                                        <ImageIcon size={18} />
+                                    </div>
+                                    <span className="text-xs font-medium">صورة</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setIsSecret(!isSecret)}
+                                    className={`flex items-center gap-2 transition-all duration-300 px-3 py-2 rounded-xl group/btn ${isSecret ? 'bg-[#800020]/20 text-[#ff99ac] hover:bg-[#800020]/30' : 'text-gray-400 hover:text-purple-400 hover:bg-purple-500/10'}`}
+                                >
+                                    <div className={`p-1.5 rounded-lg transition-colors ${isSecret ? 'bg-[#800020]/40' : 'bg-white/5 group-hover/btn:bg-purple-500/20'}`}>
+                                        {isSecret ? <Lock size={18} /> : <Unlock size={18} />}
+                                    </div>
+                                    <span className="text-xs font-medium">{isSecret ? 'سري' : 'عام'}</span>
+                                </button>
+                            </div>
+
                             {/* Keeping multiple=true for Gallery Grid feel, but restricting to image/* */}
                             <input
                                 type="file"
                                 ref={fileInputRef}
                                 className="hidden"
-                                accept="image/*"
+                                accept="image/png, image/jpeg, image/jpg, image/gif, image/webp"
                                 multiple
                                 onChange={handleImageSelect}
                             />
@@ -161,17 +181,14 @@ const CreatePost = ({ onPostCreated }) => {
                             <button
                                 type="submit"
                                 disabled={(!content.trim() && !image) || isSubmitting}
-                                className="relative overflow-hidden bg-gradient-to-r from-gold via-yellow-500 to-gold bg-[length:200%] hover:bg-right text-black px-6 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95 transition-all duration-300 shadow-[0_0_20px_rgba(255,215,0,0.3)] hover:shadow-[0_0_30px_rgba(255,215,0,0.5)]"
+                                className={`px-6 py-2 rounded-xl font-bold text-sm shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50 disabled:scale-100 ${isSecret ? 'bg-[#800020] text-white hover:bg-[#a00028] shadow-rose-900/50' : 'bg-gradient-to-r from-gold via-yellow-500 to-gold bg-[length:200%] hover:bg-right text-black shadow-[0_0_20px_rgba(255,215,0,0.3)] hover:shadow-[0_0_30px_rgba(255,215,0,0.5)]'}`}
                             >
                                 {isSubmitting ? (
-                                    <>
-                                        <Loader2 size={16} className="animate-spin" />
-                                        <span>جاري النشر...</span>
-                                    </>
+                                    <Loader2 className="animate-spin" size={18} />
                                 ) : (
                                     <>
-                                        <span className="relative z-10">نشر</span>
-                                        <Send size={16} className="rtl:rotate-180 relative z-10" />
+                                        {content.trim() || image ? <Send size={18} className="rtl:rotate-180" /> : <Sparkles size={18} />}
+                                        <span>{isSecret ? 'حفظ سري' : 'نشر'}</span>
                                     </>
                                 )}
                             </button>

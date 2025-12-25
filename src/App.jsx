@@ -125,6 +125,7 @@ const AppContent = () => {
 
 import { BackButtonProvider } from './context/BackButtonContext';
 import { ProfileProvider } from './context/ProfileContext';
+import { SiteStatusProvider } from './context/SiteStatusContext';
 
 function App() {
   return (
@@ -133,10 +134,12 @@ function App() {
         <AuthProvider>
           <ProfileProvider>
             <PresenceProvider>
-              <MusicProvider>
-                <AppContent />
-                <FloatingDisc />
-              </MusicProvider>
+              <SiteStatusProvider>
+                <MusicProvider>
+                  <AppContent />
+                  <FloatingDisc />
+                </MusicProvider>
+              </SiteStatusProvider>
             </PresenceProvider>
           </ProfileProvider>
         </AuthProvider>

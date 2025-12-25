@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useSiteStatus } from '../../context/SiteStatusContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Ticket, Clock, CheckCircle, Gift, Sparkles, Heart, Plus, X, Loader2, Palmtree, Waves, Stars, Crown, Zap } from 'lucide-react';
+import { Ticket, Clock, CheckCircle, Gift, Sparkles, Heart, Plus, X, Loader2, Palmtree, Waves, Stars, Crown, Zap, HeartCrack } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 const CouponsPage = () => {
     const { currentUser } = useAuth();
+    const { isShutdown } = useSiteStatus();
     const [coupons, setCoupons] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('nada'); // 'nada' or 'hassan'
@@ -258,7 +260,7 @@ const CouponsPage = () => {
     };
 
     return (
-        <div className="bg-[#0a0a0a] text-white pb-24 font-cairo min-h-full">
+        <div className={`bg-[#0a0a0a] text-white pb-24 font-cairo min-h-full transition-all duration-500 ${isShutdown ? 'grayscale' : ''}`}>
             {/* Header */}
             <div className="pt-8 pb-6 px-4 bg-gradient-to-b from-purple-900/20 to-transparent relative">
                 <div className="text-center">
@@ -269,8 +271,8 @@ const CouponsPage = () => {
                     <p className="text-gray-400 text-sm">😎 {isHassan ? 'استخدمهم' : 'استخدميهم'} بحكمة.. الفرصة بتيجي مرة واحدة!</p>
                 </div>
 
-                {/* Add Button (Only for specific users) */}
-                {currentUser && (
+                {/* Add Button (Only for specific users and if NOT shutdown) */}
+                {currentUser && !isShutdown && (
                     <button
                         onClick={() => setShowAddModal(true)}
                         className="absolute bottom-6 left-4 p-3 bg-gradient-to-r from-gold to-yellow-600 hover:shadow-lg hover:shadow-gold/50 rounded-full transition-all shadow-xl z-10"
@@ -303,7 +305,7 @@ const CouponsPage = () => {
                         onClick={() => setActiveTab('hassan')}
                         className={`flex-1 py-3 rounded-xl font-bold transition-all relative z-10 flex items-center justify-center gap-2 ${activeTab === 'hassan' ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
                     >
-                        <span>🦁 كوبونات حسن</span>
+                        <span>🦁 {isShutdown ? 'كوبونات حسانين' : 'كوبونات حسن'}</span>
                     </button>
                 </div>
             </div>
@@ -321,14 +323,17 @@ const CouponsPage = () => {
                             const Icon = style.icon;
 
                             return (
+
                                 <motion.div
                                     key={coupon.id}
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: index * 0.1 }}
-                                    className={`relative overflow-hidden rounded-3xl border-2 transition-all duration-300 group ${coupon.is_used
-                                        ? 'border-white/5 bg-gray-900/50 grayscale opacity-70'
-                                        : `border-white/10 bg-white/5 hover:border-white/30 hover:shadow-2xl hover:-translate-y-1 ${style.shadow} ${style.glow}`
+                                    className={`relative overflow-hidden rounded-3xl border-2 transition-all duration-300 group ${isShutdown
+                                        ? 'border-white/5 bg-gray-900/50 grayscale opacity-70 cursor-not-allowed'
+                                        : coupon.is_used
+                                            ? 'border-white/5 bg-gray-900/50 grayscale opacity-70'
+                                            : `border-white/10 bg-white/5 hover:border-white/30 hover:shadow-2xl hover:-translate-y-1 ${style.shadow} ${style.glow}`
                                         }`}
                                 >
                                     {/* Card Header Background */}
@@ -357,6 +362,11 @@ const CouponsPage = () => {
                                             <div className="w-full py-3 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400 font-bold text-center text-sm flex items-center justify-center gap-2 cursor-not-allowed">
                                                 <Gift size={16} />
                                                 <span>هدية منك للطرف الآخر 💝</span>
+                                            </div>
+                                        ) : isShutdown ? (
+                                            <div className="w-full py-3.5 rounded-xl bg-gray-800 border border-gray-700 text-gray-400 font-bold text-center text-sm flex items-center justify-center gap-2 cursor-not-allowed">
+                                                <HeartCrack size={18} />
+                                                متوقف 💔
                                             </div>
                                         ) : (
                                             <button

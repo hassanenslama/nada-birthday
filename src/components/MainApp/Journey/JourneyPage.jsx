@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import MemoriesGallery from '../Gallery/MemoriesGallery';
 import BucketList from './BucketList';
+import { useSiteStatus } from '../../../context/SiteStatusContext';
 
 const JourneyPage = () => {
+    const { isShutdown } = useSiteStatus();
     const [view, setView] = useState('timeline'); // 'timeline' or 'bucketlist'
 
     return (
         <div className="flex flex-col h-full pt-8 pb-0">
             {/* Header Toggle */}
             <div className="px-4 mb-8">
-                <div className="bg-black/40 p-1.5 rounded-full flex relative overflow-hidden backdrop-blur-xl border border-white/10 shadow-[0_0_15px_rgba(0,0,0,0.5)] max-w-lg mx-auto">
+                <div className={`bg-black/40 p-1.5 rounded-full flex relative overflow-hidden backdrop-blur-xl border border-white/10 shadow-[0_0_15px_rgba(0,0,0,0.5)] max-w-lg mx-auto ${isShutdown ? 'grayscale' : ''}`}>
                     {/* Active Background Animation */}
                     <div
                         className={`absolute inset-y-1.5 w-[calc(50%-6px)] rounded-full bg-gradient-to-r from-[#bf953f] via-[#fcf6ba] to-[#b38728] shadow-[0_0_10px_rgba(255,215,0,0.3)] transition-all duration-500 ease-out`}

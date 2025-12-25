@@ -4,12 +4,15 @@ import { motion } from "framer-motion";
 import { Check, X, Clock, User, Crown, Sparkles, GripVertical, Edit3, Trash2 } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 
+import { useSiteStatus } from "../../../context/SiteStatusContext";
+
 const WishItem = ({ item, index, onUpdate, onDelete, dragControls }) => {
     const { userRole } = useAuth();
+    const { isShutdown } = useSiteStatus();
     const [isEditing, setIsEditing] = useState(false);
     const [editText, setEditText] = useState(item.title);
 
-    const creatorName = item.created_by_role === 'admin' ? 'حسن' : 'ندى';
+    const creatorName = item.created_by_role === 'admin' ? (isShutdown ? 'حسانين' : 'حسن') : 'ندى';
     const CreatorIcon = item.created_by_role === 'admin' ? Crown : Sparkles;
 
     // Status Logic
@@ -24,6 +27,7 @@ const WishItem = ({ item, index, onUpdate, onDelete, dragControls }) => {
 
     const handleAction = (e) => {
         e.stopPropagation();
+        if (isShutdown) return; // Locked
         if (isCompleted || isDeleted) return;
 
         if (isWaiting || isPendingDelete) {
@@ -38,6 +42,7 @@ const WishItem = ({ item, index, onUpdate, onDelete, dragControls }) => {
 
     const confirmCompletion = (e) => {
         e.stopPropagation();
+        if (isShutdown) return;
         onUpdate(item.id, {
             status: 'completed',
             completed_at: new Date(selectedDate).toISOString()
@@ -46,6 +51,7 @@ const WishItem = ({ item, index, onUpdate, onDelete, dragControls }) => {
 
     const rejectCompletion = (e) => {
         e.stopPropagation();
+        if (isShutdown) return;
         onUpdate(item.id, {
             status: 'pending',
             proposed_by_role: null
@@ -55,6 +61,7 @@ const WishItem = ({ item, index, onUpdate, onDelete, dragControls }) => {
     // Deletion Workflow
     const requestDelete = (e) => {
         e.stopPropagation();
+        if (isShutdown) return;
         onUpdate(item.id, {
             status: 'pending_delete',
             proposed_by_role: userRole
@@ -63,6 +70,7 @@ const WishItem = ({ item, index, onUpdate, onDelete, dragControls }) => {
 
     const confirmDelete = (e) => {
         e.stopPropagation();
+        if (isShutdown) return;
         onUpdate(item.id, {
             status: 'deleted',
             proposed_by_role: null
@@ -71,6 +79,7 @@ const WishItem = ({ item, index, onUpdate, onDelete, dragControls }) => {
 
     const rejectDelete = (e) => {
         e.stopPropagation();
+        if (isShutdown) return;
         onUpdate(item.id, {
             status: 'pending',
             proposed_by_role: null
@@ -80,6 +89,7 @@ const WishItem = ({ item, index, onUpdate, onDelete, dragControls }) => {
     // Admin Re-open (Undo)
     const handleReopen = (e) => {
         e.stopPropagation();
+        if (isShutdown) return;
         const action = isDeleted ? 'استرجاع المحذوف' : 'إعادة فتح';
         if (window.confirm(`هل أنت متأكد من ${action}؟`)) {
             onUpdate(item.id, {
@@ -91,6 +101,7 @@ const WishItem = ({ item, index, onUpdate, onDelete, dragControls }) => {
     };
 
     const saveEdit = () => {
+        if (isShutdown) return;
         if (editText.trim() !== item.title) {
             onUpdate(item.id, { title: editText });
         }
@@ -106,15 +117,15 @@ const WishItem = ({ item, index, onUpdate, onDelete, dragControls }) => {
                     : (isWaiting || isPendingDelete)
                         ? 'bg-blue-500/5 border-blue-500/20'
                         : 'bg-[#1a1a1a] border-white/5 hover:border-gold/20'
-                } ${''}`}
+                } ${isShutdown ? 'grayscale opacity-60 pointer-events-none' : ''}`}
         >
             <div className="relative z-10 flex items-center gap-4">
 
                 {/* Drag Handle & Number */}
                 <div className="flex flex-col items-center gap-1 text-gray-500">
                     <div
-                        className="cursor-grab active:cursor-grabbing p-1 hover:text-white transition-colors touch-none"
-                        onPointerDown={(e) => dragControls?.start(e)}
+                        className={`p-1 hover:text-white transition-colors touch-none ${isShutdown ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}
+                        onPointerDown={(e) => !isShutdown && dragControls?.start(e)}
                     >
                         <GripVertical size={16} />
                     </div>
@@ -141,12 +152,14 @@ const WishItem = ({ item, index, onUpdate, onDelete, dragControls }) => {
                                         onChange={(e) => setSelectedDate(e.target.value)}
                                         onClick={(e) => e.stopPropagation()}
                                         className="bg-[#111] border border-white/10 rounded-lg text-[10px] px-2 py-1 text-white focus:border-gold outline-none w-24 h-8 font-mono"
+                                        disabled={isShutdown}
                                     />
                                 )}
                                 <button
                                     onClick={isPendingDelete ? confirmDelete : confirmCompletion}
                                     className={`w-8 h-8 rounded-full text-white flex items-center justify-center shadow-lg transition-transform hover:scale-110 ${isPendingDelete ? 'bg-red-500 hover:bg-red-400' : 'bg-green-500 hover:bg-green-400'}`}
                                     title="تأكيد"
+                                    disabled={isShutdown}
                                 >
                                     <Check size={16} />
                                 </button>
@@ -154,6 +167,7 @@ const WishItem = ({ item, index, onUpdate, onDelete, dragControls }) => {
                                     onClick={isPendingDelete ? rejectDelete : rejectCompletion}
                                     className="w-8 h-8 rounded-full bg-gray-500 hover:bg-gray-400 text-white flex items-center justify-center shadow-lg transition-transform hover:scale-110"
                                     title="رفض"
+                                    disabled={isShutdown}
                                 >
                                     <X size={16} />
                                 </button>
@@ -166,9 +180,10 @@ const WishItem = ({ item, index, onUpdate, onDelete, dragControls }) => {
                     ) : (
                         <button
                             onClick={handleAction}
-                            className="w-8 h-8 rounded-xl border-2 border-gray-600 hover:border-gold hover:bg-gold/10 transition-all group/check relative overflow-hidden"
+                            disabled={isShutdown}
+                            className={`w-8 h-8 rounded-xl border-2 transition-all group/check relative overflow-hidden ${isShutdown ? 'border-gray-700 cursor-not-allowed' : 'border-gray-600 hover:border-gold hover:bg-gold/10'}`}
                         >
-                            <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/check:opacity-100 transition-opacity text-gold">
+                            <span className={`absolute inset-0 flex items-center justify-center transition-opacity text-gold ${isShutdown ? 'hidden' : 'opacity-0 group-hover/check:opacity-100'}`}>
                                 <Check size={14} />
                             </span>
                         </button>
@@ -232,7 +247,7 @@ const WishItem = ({ item, index, onUpdate, onDelete, dragControls }) => {
 
                 {/* Actions (Edit/Delete/Reopen) */}
                 <div className="flex flex-col gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                    {!isCompleted && !isDeleted && !isEditing && !isPendingDelete && (
+                    {!isCompleted && !isDeleted && !isEditing && !isPendingDelete && !isShutdown && (
                         <>
                             <button onClick={() => setIsEditing(true)} className="p-2 text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg" title="تعديل">
                                 <Edit3 size={16} />
@@ -244,7 +259,7 @@ const WishItem = ({ item, index, onUpdate, onDelete, dragControls }) => {
                     )}
 
                     {/* Admin Re-open */}
-                    {userRole === 'admin' && (isCompleted || isDeleted) && (
+                    {userRole === 'admin' && (isCompleted || isDeleted) && !isShutdown && (
                         <button onClick={handleReopen} className="p-2 text-gray-500 hover:text-gold hover:bg-gold/10 rounded-lg" title="إسترجاع / إعادة فتح">
                             <Clock size={16} />
                         </button>

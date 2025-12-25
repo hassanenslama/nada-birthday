@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../supabase';
 import { useAuth } from '../../../context/AuthContext';
+import { useSiteStatus } from '../../../context/SiteStatusContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Heart, Calendar, Image as ImageIcon, Send, X, Loader2 } from 'lucide-react';
+import { Plus, Heart, Calendar, Image as ImageIcon, Send, X, Loader2, HeartCrack } from 'lucide-react';
 
 const FeelingsPage = () => {
     const { userRole } = useAuth();
+    const { isShutdown } = useSiteStatus();
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('all'); // all, admin, user
@@ -86,12 +88,12 @@ const FeelingsPage = () => {
 
     const categories = [
         { id: 'all', label: 'كلامنا سوا' },
-        { id: 'admin', label: 'رسايل حسانين' },
+        { id: 'admin', label: isShutdown ? 'رسايل حسانين' : 'رسايل حسن' },
         { id: 'user', label: 'رسايل ندى' }
     ];
 
     return (
-        <div className="min-h-screen pb-24 pt-16 px-4 relative overflow-hidden">
+        <div className={`min-h-screen pb-24 pt-16 px-4 relative overflow-hidden transition-all duration-500 ${isShutdown ? 'grayscale' : ''}`}>
             {/* Ambient Background */}
             <div className="fixed inset-0 pointer-events-none">
                 <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-purple-900/10 blur-[120px] rounded-full" />
@@ -102,10 +104,16 @@ const FeelingsPage = () => {
             <div className="text-center mb-10 relative z-10">
                 <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
                     <h1 className="text-4xl md:text-5xl font-bold font-cairo text-white mb-2 drop-shadow-lg flex items-center justify-center gap-3">
-                        <Heart className="text-red-500 fill-red-500 animate-pulse" />
+                        {isShutdown ? (
+                            <HeartCrack className="text-gray-500" />
+                        ) : (
+                            <Heart className="text-red-500 fill-red-500 animate-pulse" />
+                        )}
                         مشاعرنا
                     </h1>
-                    <p className="text-white/60 font-cairo text-lg">كل كلمة هنا بتوثق لحظة حب بينا ❤️</p>
+                    <p className={`text-lg font-cairo ${isShutdown ? 'text-gray-500' : 'text-white/60'}`}>
+                        {isShutdown ? 'كل كلمه هنا كانت بتمثل مشاعر بينا 💔' : 'كل كلمة هنا بتوثق لحظة حب بينا ❤️'}
+                    </p>
                 </motion.div>
 
                 {/* Tabs */}
@@ -206,14 +214,16 @@ const FeelingsPage = () => {
             )}
 
             {/* FAB */}
-            <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => setIsModalOpen(true)}
-                className="fixed bottom-24 right-6 z-50 w-14 h-14 bg-gradient-to-r from-gold to-orange-500 rounded-full shadow-[0_0_20px_rgba(255,215,0,0.4)] flex items-center justify-center text-black"
-            >
-                <Plus size={24} strokeWidth={3} />
-            </motion.button>
+            {!isShutdown && (
+                <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => setIsModalOpen(true)}
+                    className="fixed bottom-24 right-6 z-50 w-14 h-14 bg-gradient-to-r from-gold to-orange-500 rounded-full shadow-[0_0_20px_rgba(255,215,0,0.4)] flex items-center justify-center text-black"
+                >
+                    <Plus size={24} strokeWidth={3} />
+                </motion.button>
+            )}
 
             {/* Add Modal */}
             <AnimatePresence>

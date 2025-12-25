@@ -2,9 +2,19 @@ import React, { useState } from 'react';
 import { MapPin, Smartphone, Clock, RotateCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../../supabase';
+import { useSiteStatus } from '../../../context/SiteStatusContext';
 
 const UserMonitorCard = ({ user, isOnline, location }) => {
+    const { isShutdown } = useSiteStatus();
     const [showHistory, setShowHistory] = useState(false);
+
+    // Dynamic naming logic
+    const displayName = user.id === '5857946a-7888-44db-bbba-c9233f81e649' // Hassan ID (fallback check if needed, but let's use display_name check)
+        ? (isShutdown ? 'حسانين' : 'حسن')
+        : (user.display_name === 'Hassan' || user.display_name === 'Hassanen' || user.display_name === 'حسن' || user.display_name === 'حسانين'
+            ? (isShutdown ? 'حسانين' : 'حسن')
+            : user.display_name);
+
     const [historyLogs, setHistoryLogs] = useState([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
 
@@ -48,7 +58,7 @@ const UserMonitorCard = ({ user, isOnline, location }) => {
                         {isOnline && <div className="absolute bottom-1 right-1 w-3.5 h-3.5 bg-green-500 border-2 border-black rounded-full animate-pulse" />}
                     </div>
                     <div className="min-w-0 flex-1">
-                        <h3 className="font-bold text-white text-xl md:text-2xl mb-1 truncate">{user.display_name}</h3>
+                        <h3 className="font-bold text-white text-xl md:text-2xl mb-1 truncate">{displayName}</h3>
                         <div className="flex flex-wrap gap-2 text-xs md:text-sm mt-1 text-gray-300">
                             <span className="flex items-center gap-1 bg-white/10 px-2 py-1 rounded-full whitespace-nowrap"><MapPin size={12} className="text-green-400" /> {location}</span>
                             <span className="flex items-center gap-1 bg-white/10 px-2 py-1 rounded-full whitespace-nowrap"><Smartphone size={12} className="text-purple-400" /> {user.device_info || 'Unknown'}</span>
@@ -79,12 +89,13 @@ const UserMonitorCard = ({ user, isOnline, location }) => {
                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                         <div className="pt-3 space-y-2">
                             {historyLogs.length > 0 ? historyLogs.map(log => (
-                                <div key={log.id} className="flex items-center justify-between text-[10px] bg-black/20 p-2 rounded border border-white/5">
-                                    <div className="flex items-center gap-2 text-gray-400">
+                                <div key={log.id} className="flex items-center justify-between text-sm bg-black/30 p-3 rounded-lg border border-white/10 hover:bg-white/5 transition">
+                                    <div className="flex items-center gap-3 text-gray-300">
+                                        <span className="font-medium text-gold/80 dir-ltr font-mono text-xs">{log.ip_address}</span>
+                                        <span className="w-1 h-1 rounded-full bg-white/20"></span>
                                         <span>{log.device_info}</span>
-                                        <span className="font-mono text-gold dir-ltr">{log.ip_address}</span>
                                     </div>
-                                    <div className="text-gray-600 dir-ltr">{formatTime(log.created_at)}</div>
+                                    <div className="text-gray-400 text-xs font-mono dir-ltr">{formatTime(log.created_at)}</div>
                                 </div>
                             )) : (
                                 <div className="text-center text-xs text-gray-600 py-2">لا يوجد سجل نشاط سابق</div>

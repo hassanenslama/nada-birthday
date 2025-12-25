@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../supabase';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Eye, Clock, Trash2, Shield, AlertTriangle, MessageCircle, Heart, ThumbsDown, User, Calendar, ArrowRight } from 'lucide-react';
+import { Eye, Clock, Trash2, Shield, AlertTriangle, MessageCircle, Heart, ThumbsDown, User, Calendar, ArrowRight, Lock } from 'lucide-react';
 
 const PostsMonitor = () => {
     const [activeTab, setActiveTab] = useState('hidden_reactions');
@@ -30,6 +30,10 @@ const PostsMonitor = () => {
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'post_edits' }, fetchData)
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'comment_edits' }, fetchData);
         } else if (activeTab === 'deleted_content') {
+            channel
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, fetchData)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'post_comments' }, fetchData);
+        } else if (activeTab === 'secret_content') {
             channel
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, fetchData)
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'post_comments' }, fetchData);
@@ -101,7 +105,26 @@ const PostsMonitor = () => {
                 fetchedData = [
                     ...(deletedPosts || []).map(p => ({ ...p, type: 'post' })),
                     ...(deletedComments || []).map(c => ({ ...c, type: 'comment' }))
-                ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)); // Use created_at or updated_at if available for deletion time
+                ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            } else if (activeTab === 'secret_content') {
+                // Fetch Secret Posts (Active & Deleted)
+                const { data: secretPosts } = await supabase
+                    .from('posts')
+                    .select('*, user_profiles(display_name, avatar_url)')
+                    .eq('is_secret', true)
+                    .order('created_at', { ascending: false });
+
+                // Fetch Secret Comments (Active & Deleted)
+                const { data: secretComments } = await supabase
+                    .from('post_comments')
+                    .select('*, user_profiles(display_name, avatar_url)')
+                    .eq('is_secret', true)
+                    .order('created_at', { ascending: false });
+
+                fetchedData = [
+                    ...(secretPosts || []).map(p => ({ ...p, type: 'post' })),
+                    ...(secretComments || []).map(c => ({ ...c, type: 'comment' }))
+                ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             }
 
             setData(fetchedData);
@@ -135,6 +158,7 @@ const PostsMonitor = () => {
         <div className="space-y-6">
             <div className="flex flex-wrap gap-3 mb-6">
                 <TabButton id="hidden_reactions" icon={Eye} label="تفاعلات خفية" />
+                <TabButton id="secret_content" icon={Lock} label="محتوى سري" />
                 <TabButton id="edit_history" icon={Clock} label="سجل التعديلات" />
                 <TabButton id="deleted_content" icon={Trash2} label="المحذوفات" />
             </div>
@@ -182,6 +206,7 @@ const PostsMonitor = () => {
                                         )}
                                         {activeTab === 'edit_history' && <Clock size={10} className="text-gold" />}
                                         {activeTab === 'deleted_content' && <Trash2 size={10} className="text-red-500" />}
+                                        {activeTab === 'secret_content' && <Lock size={10} className="text-[#ff99ac]" />}
                                     </div>
                                 </div>
 
@@ -243,6 +268,26 @@ const PostsMonitor = () => {
                                                     <img src={item.image_url} alt="Deleted content" className="h-12 w-12 rounded-lg object-cover opacity-50" />
                                                 )}
                                                 <span className="text-xs text-red-400 bg-red-500/10 px-2 py-1 rounded">تم الحذف</span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {activeTab === 'secret_content' && (
+                                        <div className="bg-[#2a0a10] border border-[#800020] p-3 rounded-xl relative overflow-hidden">
+                                            <p className="text-[#ff99ac] text-sm font-medium">{item.content}</p>
+                                            {item.image_url && (
+                                                <img src={item.image_url} alt="Secret content" className="mt-2 h-20 w-20 rounded-lg object-cover border border-[#800020]" />
+                                            )}
+                                            <div className="mt-2 flex items-center gap-2">
+                                                <span className="flex items-center gap-1 text-[10px] text-[#ff99ac] bg-[#800020]/30 px-2 py-1 rounded border border-[#800020]/50">
+                                                    <Lock size={10} />
+                                                    محتوى سري
+                                                </span>
+                                                {item.is_deleted && (
+                                                    <span className="text-[10px] text-red-400 bg-red-500/10 px-2 py-1 rounded border border-red-500/20">
+                                                        تم الحذف
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                     )}

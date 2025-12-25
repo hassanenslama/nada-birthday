@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useProfile } from '../../../context/ProfileContext';
+import { useSiteStatus } from '../../../context/SiteStatusContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LogOut, Globe, Lock, ChevronLeft, User, Key, Save, X, Loader2, CheckCircle2, Music, Bell, Camera, Edit3 } from 'lucide-react';
 import { supabase } from '../../../supabase';
@@ -12,6 +13,7 @@ import Toast from '../../common/Toast';
 
 const SettingsPage = () => {
     const { logout, currentUser, userRole } = useAuth();
+    const { isShutdown } = useSiteStatus();
     const { userProfile, loading: profileLoading } = useProfile();
     const { isPermanentlyDisabled, setPermanentlyDisabled } = useMusic();
     const { isGhostMode, toggleGhostMode } = usePresence();
@@ -184,7 +186,7 @@ const SettingsPage = () => {
     if (profileLoading) return <div className="flex justify-center items-center min-h-screen text-gold"><Loader2 className="animate-spin" size={40} /></div>;
 
     return (
-        <div className="min-h-screen pb-24 pt-8 px-4 font-cairo">
+        <div className={`min-h-screen pb-24 pt-8 px-4 font-cairo transition-all duration-500 ${isShutdown ? 'grayscale' : ''}`}>
             <h1 className="text-3xl text-gold font-bold mb-8 text-center">الإعدادات ⚙️</h1>
 
             {/* Editable Profile Card */}

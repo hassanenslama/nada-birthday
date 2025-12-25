@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../../supabase';
 import { useAuth } from '../../../context/AuthContext';
-import { Send, Trash2, Loader2, MessageCircle, CornerDownRight, Edit2, Check, X, Image as ImageIcon } from 'lucide-react';
+import { Send, Trash2, Loader2, MessageCircle, CornerDownRight, Edit2, Check, X, Image as ImageIcon, Lock, Unlock } from 'lucide-react';
 import ReactionButton from './ReactionButton';
 import ConfirmModal from './ConfirmModal';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -14,6 +14,7 @@ const CommentItem = ({ comment, postId, onDelete, onUpdate, onReply, replies = [
     const [replyContent, setReplyContent] = useState('');
     const [submittingReply, setSubmittingReply] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [showPublicConfirm, setShowPublicConfirm] = useState(false);
 
     // Edit State
     const [isEditing, setIsEditing] = useState(false);
@@ -183,6 +184,23 @@ const CommentItem = ({ comment, postId, onDelete, onUpdate, onReply, replies = [
         setSubmittingReply(false);
     };
 
+    const handleMakePublic = async () => {
+        try {
+            const { error } = await supabase
+                .from('post_comments')
+                .update({ is_secret: false })
+                .eq('id', comment.id);
+
+            if (error) throw error;
+
+            if (onDelete) onDelete();
+            setShowPublicConfirm(false);
+        } catch (error) {
+            console.error('Error making comment public:', error);
+            alert('حدث خطأ، حاول مرة أخرى.');
+        }
+    };
+
     // Style logic for nesting
     const containerClasses = `
         group transition-all duration-300 relative
@@ -199,9 +217,11 @@ const CommentItem = ({ comment, postId, onDelete, onUpdate, onReply, replies = [
         >
             <div className={`
                 p-3 rounded-2xl border border-white/5 relative
-                ${depth > 0
-                    ? 'bg-black/40 backdrop-blur-sm border-r-2 border-r-gold/20'
-                    : 'bg-[#181818] hover:bg-[#202020] hover:border-gold/10'
+                ${comment.is_secret
+                    ? 'bg-[#2a0a10]/90 border border-[#800020]/50'
+                    : depth > 0
+                        ? 'bg-black/40 backdrop-blur-sm border-r-2 border-r-gold/20'
+                        : 'bg-[#181818] hover:bg-[#202020] hover:border-gold/10'
                 }
             `}>
                 <ConfirmModal
@@ -211,6 +231,16 @@ const CommentItem = ({ comment, postId, onDelete, onUpdate, onReply, replies = [
                     title="حذف التعليق"
                     message="هل تريد حذف هذا التعليق نهائياً؟"
                     confirmText="حذف"
+                />
+
+                <ConfirmModal
+                    isOpen={showPublicConfirm}
+                    onClose={() => setShowPublicConfirm(false)}
+                    onConfirm={handleMakePublic}
+                    title="نشر التعليق"
+                    message="هل أنت متأكد من أنك تريد عرض التعليق للجميع؟"
+                    confirmText="نشر"
+                    confirmColor="bg-green-600 hover:bg-green-700"
                 />
 
                 <div className="flex gap-2">
@@ -246,6 +276,11 @@ const CommentItem = ({ comment, postId, onDelete, onUpdate, onReply, replies = [
                                 <h4 className="text-gray-200 text-sm font-bold flex items-center gap-2">
                                     {comment.user_profiles?.display_name || 'مستخدم'}
                                     {/* <span className="text-[10px] font-normal bg-white/5 px-1.5 py-0.5 rounded-full text-gold">مسؤول</span> */}
+                                    {comment.is_secret && (
+                                        <span className="mr-1 px-1.5 py-0.5 rounded-full bg-[#2a0a10] text-[#ff99ac] text-[9px] border border-[#800020] flex items-center gap-0.5 shadow-sm">
+                                            <Lock size={8} /> سري
+                                        </span>
+                                    )}
                                 </h4>
                                 <span className="text-white/20 text-[10px]">•</span>
                                 <span className="text-xs text-gray-400 font-medium whitespace-nowrap">
@@ -255,17 +290,26 @@ const CommentItem = ({ comment, postId, onDelete, onUpdate, onReply, replies = [
                             </div>
                             {comment.user_id === currentUser?.id && (
                                 <div className="flex items-center gap-1">
+                                    {comment.is_secret && (
+                                        <button
+                                            onClick={() => setShowPublicConfirm(true)}
+                                            className="text-[#ff99ac] hover:text-white transition-colors opacity-0 group-hover:opacity-100 p-1.5 bg-black/50 rounded-full"
+                                            title="نشر للعامة"
+                                        >
+                                            <Unlock size={14} />
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => setIsEditing(!isEditing)}
-                                        className="text-gray-600 hover:text-gold transition-colors opacity-0 group-hover:opacity-100 p-1 bg-black/50 rounded-full"
+                                        className="text-gray-600 hover:text-gold transition-colors opacity-0 group-hover:opacity-100 p-1.5 bg-black/50 rounded-full"
                                     >
-                                        <Edit2 size={10} />
+                                        <Edit2 size={14} />
                                     </button>
                                     <button
                                         onClick={() => setShowDeleteConfirm(true)}
-                                        className="text-gray-600 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 p-1 bg-black/50 rounded-full"
+                                        className="text-gray-600 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 p-1.5 bg-black/50 rounded-full"
                                     >
-                                        <Trash2 size={10} />
+                                        <Trash2 size={14} />
                                     </button>
                                 </div>
                             )}
@@ -274,12 +318,17 @@ const CommentItem = ({ comment, postId, onDelete, onUpdate, onReply, replies = [
                         {/* Content */}
                         {isEditing ? (
                             <div className="mt-2">
-                                <input
-                                    type="text"
+                                <textarea
                                     value={editContent}
                                     onChange={(e) => setEditContent(e.target.value)}
-                                    className="w-full bg-black/30 border border-gold/30 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold"
+                                    className="w-full bg-black/30 border border-gold/30 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-gold resize-none custom-scrollbar leading-relaxed"
+                                    rows={1}
+                                    enterKeyHint="enter"
                                     autoFocus
+                                    onInput={(e) => {
+                                        e.target.style.height = 'auto';
+                                        e.target.style.height = e.target.scrollHeight + 'px';
+                                    }}
                                 />
                                 <div className="flex gap-2 mt-2 justify-end">
                                     <button
@@ -411,6 +460,7 @@ const CommentSection = ({ postId }) => {
     const [currentUserProfile, setCurrentUserProfile] = useState(null);
     const [selectedImage, setSelectedImage] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
+    const [isSecret, setIsSecret] = useState(false);
     const fileInputRef = useRef(null);
 
     useEffect(() => {
@@ -440,7 +490,12 @@ const CommentSection = ({ postId }) => {
             .eq('post_id', postId)
             .order('created_at', { ascending: true });
 
-        if (data) setComments(data);
+        if (data) {
+            // Filter: Public OR My Secret
+            // Client-side filtering for prototype
+            const visibleComments = data.filter(c => !c.is_secret || c.user_id === currentUser.id);
+            setComments(visibleComments);
+        }
         setLoading(false);
     };
 
@@ -464,7 +519,8 @@ const CommentSection = ({ postId }) => {
             user_id: currentUser.id,
             content: content,
             parent_id: parentId,
-            image_url: imageUrl
+            image_url: imageUrl,
+            is_secret: isSecret && !parentId // Only root comments can be secret for now to avoid complexity in threads
         });
 
         if (error) {
@@ -507,7 +563,7 @@ const CommentSection = ({ postId }) => {
     return (
         <div className="border-t border-white/5 bg-[#121212]/50 backdrop-blur-md p-5 rounded-b-3xl">
             {/* Input for Parent Comment */}
-            <form onSubmit={handleSubmit} className="flex gap-3 items-end mb-8">
+            <div className="flex gap-3 items-end mb-8">
                 {currentUserProfile?.avatar_url ? (
                     <img
                         src={currentUserProfile.avatar_url}
@@ -547,21 +603,13 @@ const CommentSection = ({ postId }) => {
                         <textarea
                             value={newComment}
                             onChange={(e) => setNewComment(e.target.value)}
-                            placeholder="شارك برأيك... ✨"
-                            className="relative w-full bg-[#181818] border border-white/10 rounded-2xl pl-12 pr-14 py-3.5 text-sm text-white outline-none focus:border-gold/40 focus:bg-[#1a1a1a] transition-all placeholder-gray-500 shadow-xl resize-none min-h-[50px] max-h-[150px] leading-relaxed custom-scrollbar"
+                            placeholder={isSecret ? "اكتب تعليق سري... 🔒" : "شارك برأيك... ✨"}
+                            className={`relative w-full border rounded-2xl pl-12 pr-24 py-3.5 text-sm text-white outline-none transition-all placeholder-gray-500 shadow-xl resize-none min-h-[50px] max-h-[150px] leading-relaxed custom-scrollbar ${isSecret ? 'bg-[#2a0a10] border-[#800020] focus:border-[#ff0040] placeholder-rose-800/50' : 'bg-[#181818] border-white/10 focus:border-gold/40 focus:bg-[#1a1a1a]'}`}
                             rows={1}
+                            enterKeyHint="enter"
                             onInput={(e) => {
                                 e.target.style.height = 'auto';
                                 e.target.style.height = e.target.scrollHeight + 'px';
-                            }}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                    // Default behavior: New Line
-                                }
-                                if (e.key === 'Enter' && e.ctrlKey) {
-                                    e.preventDefault();
-                                    handleSubmit(e);
-                                }
                             }}
                         />
                         <button
@@ -575,12 +623,23 @@ const CommentSection = ({ postId }) => {
                             type="file"
                             ref={fileInputRef}
                             className="hidden"
-                            accept="image/*"
+                            accept="image/png, image/jpeg, image/jpg, image/gif, image/webp"
+                            multiple
                             onChange={handleImageSelect}
                         />
 
                         <button
-                            type="submit"
+                            type="button"
+                            onClick={() => setIsSecret(!isSecret)}
+                            className={`absolute right-10 top-1/2 -translate-y-1/2 p-2 transition-colors ${isSecret ? 'text-[#ff99ac]' : 'text-gray-400 hover:text-purple-400'}`}
+                            title={isSecret ? "تعليق سري" : "تعليق عام"}
+                        >
+                            {isSecret ? <Lock size={20} /> : <Unlock size={20} />}
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={handleSubmit}
                             disabled={(!newComment.trim() && !selectedImage) || submitting}
                             className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-gradient-to-r from-gold to-yellow-500 text-black rounded-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 shadow-lg z-10"
                         >
@@ -588,7 +647,7 @@ const CommentSection = ({ postId }) => {
                         </button>
                     </div>
                 </div>
-            </form>
+            </div>
 
             {/* Comments List */}
             <div className="space-y-6 max-h-[500px] overflow-y-auto custom-scrollbar pr-1 pl-1">
