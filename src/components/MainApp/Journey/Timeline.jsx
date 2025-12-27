@@ -1,11 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { timelineData } from '../../../data/timeline';
 import { supabase } from '../../../supabase';
 import { useAuth } from '../../../context/AuthContext';
+import { useSiteStatus } from '../../../context/SiteStatusContext';
 import { Lock } from 'lucide-react';
 
 const Timeline = () => {
     const { currentUser, userRole } = useAuth();
+    const { isShutdown } = useSiteStatus();
     const [activeIndex, setActiveIndex] = useState(0);
     const [showLightbox, setShowLightbox] = useState(false);
     const [unlockedIds, setUnlockedIds] = useState([]); // List of unlocked IDs
@@ -95,20 +98,22 @@ const Timeline = () => {
 
                 {/* Main Content Area */}
                 <div
-                    className="absolute inset-0 z-10 flex items-center justify-center p-2 pb-24 transition-transform"
+                    className="absolute inset-0 z-10 flex items-center justify-center p-4 pb-32 transition-transform"
                     onClick={() => isUnlocked && setShowLightbox(true)}
                 >
                     {isUnlocked ? (
                         // UNLOCKED STATE
                         <>
-                            <img
-                                src={activeMemory?.image}
-                                alt={activeMemory?.title}
-                                className="max-h-full max-w-full object-contain rounded-lg shadow-2xl animate-scaleIn drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] cursor-zoom-in active:scale-95 transition-transform"
-                                key={`unlocked-${activeMemory?.id}`}
-                            />
+                            <div className="relative w-full h-full flex items-center justify-center">
+                                <img
+                                    src={activeMemory?.image}
+                                    alt={activeMemory?.title}
+                                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-scaleIn drop-shadow-2xl cursor-zoom-in active:scale-95 transition-transform"
+                                    key={`unlocked-${activeMemory?.id}`}
+                                />
+                            </div>
                             {/* Zoom Hint */}
-                            <div className="absolute top-4 right-4 bg-black/50 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                            <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md text-white px-3 py-1.5 rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-white/10">
                                 🔍 كبري الصورة
                             </div>
                         </>
@@ -126,14 +131,14 @@ const Timeline = () => {
                     )}
                 </div>
 
-                {/* Text Content Overlay */}
-                <div className="absolute bottom-0 left-0 right-0 p-6 z-20 bg-gradient-to-t from-black via-black/90 to-transparent pt-32 pointer-events-none">
+                {/* Text Content Overlay - Adjusted gradient and spacing */}
+                <div className="absolute bottom-0 left-0 right-0 p-6 z-20 bg-gradient-to-t from-black via-black/80 to-transparent pt-24 pointer-events-none">
                     <div className="animate-slideInUp">
-                        <h2 className={`text-3xl font-bold font-cairo mb-1 drop-shadow-lg ${isUnlocked ? 'text-white' : 'text-gray-500'}`}>
+                        <h2 className={`text-2xl md:text-3xl font-bold font-cairo mb-2 drop-shadow-lg ${isUnlocked ? 'text-white' : 'text-gray-500'}`}>
                             {activeMemory?.title}
                         </h2>
                         {isUnlocked && (
-                            <p className="text-white/80 font-cairo text-lg leading-relaxed max-w-md">
+                            <p className="text-gray-200 font-cairo text-sm md:text-lg leading-relaxed max-w-lg line-clamp-3 md:line-clamp-none">
                                 {activeMemory?.description}
                             </p>
                         )}
@@ -142,13 +147,13 @@ const Timeline = () => {
             </div>
 
             {/* Lightbox Overlay */}
-            {showLightbox && isUnlocked && (
+            {showLightbox && isUnlocked && ReactDOM.createPortal(
                 <div
-                    className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn"
+                    className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn overflow-hidden"
                     onClick={() => setShowLightbox(false)}
                 >
                     <button
-                        className="absolute top-6 right-6 text-white text-4xl hover:text-gold transition-colors z-50"
+                        className="absolute top-6 right-6 text-white text-4xl hover:text-gold transition-colors z-50 bg-black/50 rounded-full px-2"
                         onClick={() => setShowLightbox(false)}
                     >
                         &times;
@@ -156,9 +161,11 @@ const Timeline = () => {
                     <img
                         src={activeMemory?.image}
                         alt={activeMemory?.title}
-                        className="max-h-[90vh] max-w-[95vw] object-contain rounded-lg shadow-2xl animate-scaleIn"
+                        className={`max-h-[90vh] max-w-[95vw] object-contain rounded-lg shadow-2xl animate-scaleIn select-none ${isShutdown ? 'grayscale' : ''}`}
+                        onClick={(e) => e.stopPropagation()}
                     />
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Horizontal Thumbnail Scroll */}

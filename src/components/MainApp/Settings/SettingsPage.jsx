@@ -19,6 +19,7 @@ const SettingsPage = () => {
     const { isGhostMode, toggleGhostMode } = usePresence();
     const [loading, setLoading] = useState(false);
     const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(() => localStorage.getItem('notification_sound_enabled') !== 'false');
+    const [santaSoundEnabled, setSantaSoundEnabled] = useState(() => localStorage.getItem('santa_sound_enabled') !== 'false');
     const [toast, setToast] = useState(null); // { message, type }
 
     // Use a Ref to clear timeout on unmount
@@ -122,8 +123,10 @@ const SettingsPage = () => {
         try {
             setLoading(true);
             await logout();
+            window.location.href = '/'; // Hard refresh
         } catch (error) {
             console.error("Failed to log out", error);
+            window.location.reload(); // Fallback
         } finally {
             setLoading(false);
         }
@@ -339,6 +342,33 @@ const SettingsPage = () => {
                             onChange={(e) => toggleGhostMode(e.target.checked)}
                         />
                         <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
+                    </label>
+                </div>
+
+                {/* Santa Animation Sound Toggle */}
+                <div className="w-full flex items-center justify-between p-4 rounded-2xl border border-white/5 bg-white/5 backdrop-blur-sm mb-3 transition-colors hover:bg-white/10">
+                    <div className="flex items-center gap-4">
+                        <div className="p-2 rounded-full bg-red-500/10 text-red-400">
+                            <span className="text-xl">🎅</span>
+                        </div>
+                        <div className="text-right">
+                            <h3 className="font-bold text-sm text-gray-200">صوت سانتا الطائر</h3>
+                            <p className="text-xs text-gray-500 mt-1">{santaSoundEnabled ? 'مفعل' : 'مكتوم'}</p>
+                        </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer ml-2">
+                        <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={santaSoundEnabled}
+                            onChange={(e) => {
+                                setSantaSoundEnabled(e.target.checked);
+                                localStorage.setItem('santa_sound_enabled', e.target.checked);
+                                // Dispatch event for Flying Santa to listen
+                                window.dispatchEvent(new CustomEvent('santa-sound-toggle', { detail: { enabled: e.target.checked } }));
+                            }}
+                        />
+                        <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
                     </label>
                 </div>
 

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, Trash2, ExternalLink, Link as LinkIcon, MoreHorizontal, Share2, Edit2, Check, X, Lock, Unlock } from 'lucide-react';
+import { MessageCircle, Trash2, ExternalLink, Link as LinkIcon, MoreHorizontal, Share2, Edit2, Check, X, Lock, Unlock, Snowflake } from 'lucide-react';
 import { supabase } from '../../../supabase';
 import { useAuth } from '../../../context/AuthContext';
 import { useSiteStatus } from '../../../context/SiteStatusContext';
+import { getAssetPath } from '../../../utils/assets';
 import ReactionButton from './ReactionButton';
 import CommentSection from './CommentSection';
 import ConfirmModal from './ConfirmModal';
@@ -268,6 +269,24 @@ const PostCard = ({ post, onDelete, onUpdate, index, onImageClick }) => {
                 confirmColor="bg-green-600 hover:bg-green-700"
             />
 
+            {/* Frozen Corner Effect ❄️ (Real Image with White BG Fix) */}
+            <div className="absolute top-0 right-0 w-32 h-32 pointer-events-none z-10 overflow-hidden rounded-tr-[24px]">
+                <img
+                    src={getAssetPath('/images/Snow-Corner-Frame.png')}
+                    alt="Snow Corner"
+                    className="w-full h-full object-cover opacity-70"
+                />
+            </div>
+
+            {/* Bottom-Left Decoration 🎄 (Adjusted for Size, Position, and Layering) */}
+            <div className="absolute -bottom-4 -left-4 w-36 h-36 pointer-events-none z-0 overflow-hidden rounded-bl-[30px]">
+                <img
+                    src={getAssetPath('/images/vecteezy_christmas-corner.png')}
+                    alt="Christmas Decoration"
+                    className="w-full h-full object-contain opacity-50 contrast-125"
+                />
+            </div>
+
             {/* Header */}
             <div className="p-5 flex justify-between items-start">
                 <div className="flex gap-4">
@@ -446,8 +465,8 @@ const PostCard = ({ post, onDelete, onUpdate, index, onImageClick }) => {
                 </div>
             )}
 
-            {/* Action Bar */}
-            <div className="px-5 py-4 mt-2">
+            {/* Action Bar (Updated z-index) */}
+            <div className="px-5 py-4 mt-2 relative z-20">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 bg-white/5 rounded-full p-1.5 border border-white/5 pr-4 pl-2">
                         <ReactionButton

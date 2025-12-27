@@ -88,7 +88,7 @@ const CreatePost = ({ onPostCreated }) => {
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`group relative backdrop-blur-xl rounded-3xl p-5 border border-white/10 shadow-2xl hover:border-gold/30 transition-all duration-300 mb-10 overflow-hidden ${isSecret ? 'bg-[#2a0a10]/90 border-[#800020]/50' : `bg-[#121212]/80 ${isShutdown ? 'grayscale' : ''}`}`}
+            className={`group relative backdrop-blur-xl rounded-3xl p-4 md:p-5 border border-white/10 shadow-2xl hover:border-gold/30 transition-all duration-300 mb-6 md:mb-10 overflow-hidden ${isSecret ? 'bg-[#2a0a10]/90 border-[#800020]/50' : `bg-[#121212]/80 ${isShutdown ? 'grayscale' : ''}`}`}
         >
             {/* Glow Effect */}
             <div className={`absolute -top-10 -right-10 w-32 h-32 rounded-full blur-[50px] transition-all duration-500 ${isSecret ? 'bg-[#800020]/20' : 'bg-gold/10 group-hover:bg-gold/20'}`} />
@@ -143,8 +143,8 @@ const CreatePost = ({ onPostCreated }) => {
                             )}
                         </AnimatePresence>
 
-                        <div className="flex justify-between items-center mt-4 pl-1">
-                            <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2 justify-between items-center mt-4 pl-1">
+                            <div className="flex gap-2 flex-wrap">
                                 <button
                                     type="button"
                                     onClick={() => fileInputRef.current?.click()}
@@ -168,7 +168,6 @@ const CreatePost = ({ onPostCreated }) => {
                                 </button>
                             </div>
 
-                            {/* Keeping multiple=true for Gallery Grid feel, but restricting to image/* */}
                             <input
                                 type="file"
                                 ref={fileInputRef}
@@ -188,7 +187,7 @@ const CreatePost = ({ onPostCreated }) => {
                                 ) : (
                                     <>
                                         {content.trim() || image ? <Send size={18} className="rtl:rotate-180" /> : <Sparkles size={18} />}
-                                        <span>{isSecret ? 'حفظ سري' : 'نشر'}</span>
+                                        <span>{isSecret ? 'حفظ' : 'نشر'}</span>
                                     </>
                                 )}
                             </button>

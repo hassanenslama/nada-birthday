@@ -4,31 +4,35 @@ import { useAuth } from './AuthContext';
 import { useSiteStatus } from './SiteStatusContext';
 
 const MusicContext = createContext();
+import { getAssetPath } from '../utils/assets';
 
 export const useMusic = () => useContext(MusicContext);
 
 export const MusicProvider = ({ children }) => {
     const { isShutdown } = useSiteStatus();
 
-    // Default Playlist
+    // Default Playlist (Floating-Music-Player)
     const defaultPlaylist = [
-        { title: "Die With A Smile", src: `${import.meta.env.BASE_URL}music/Die%20With%20A%20Smile.mp3`, artist: "Lady Gaga & Bruno Mars" },
-        { title: "Perhaps Perhaps Perhaps", src: `${import.meta.env.BASE_URL}music/Doris%20Day%20~~~%20Perhaps%20Perhaps%20Perhaps.mp3`, artist: "Doris Day" },
-        { title: "الك و بس", src: `${import.meta.env.BASE_URL}music/الك%20و%20بس.mp3`, artist: "Unknown" }
+        { title: "Gimme! Gimme! Gimme!", src: getAssetPath("music/Floating-Music-Player/Gimme!%20Gimme!%20Gimme!.mp3"), artist: "ABBA" },
+        { title: "Die With A Smile", src: getAssetPath("music/Floating-Music-Player/Die%20With%20A%20Smile.mp3"), artist: "Lady Gaga & Bruno Mars" },
+        { title: "Perhaps Perhaps Perhaps", src: getAssetPath("music/Floating-Music-Player/Doris%20Day%20~~~%20Perhaps%20Perhaps%20Perhaps.mp3"), artist: "Doris Day" },
+        { title: "Don t Let Me Down", src: getAssetPath("music/Floating-Music-Player/Don%20t%20Let%20Me%20Down.mp3"), artist: "The Chainsmokers" },
+        { title: "الك و بس", src: getAssetPath("music/Floating-Music-Player/الك%20و%20بس.mp3"), artist: "Unknown" },
+        { title: "To Die For", src: getAssetPath("music/Floating-Music-Player/To%20Die%20For.mp3"), artist: "Sam Smith" }
     ];
 
     // Shutdown Playlist (Sad/Close folder)
     const shutdownPlaylist = [
-        { title: "Runaway", src: `${import.meta.env.BASE_URL}music/close/Runaway.mp3`, artist: "AURORA" },
-        { title: "To Die For", src: `${import.meta.env.BASE_URL}music/close/To%20Die%20For.mp3`, artist: "Sam Smith" },
-        { title: "Cinnamon Girl", src: `${import.meta.env.BASE_URL}music/close/Cinnamon%20Girl.mp3`, artist: "Lana Del Rey" },
-        { title: "Sometimes Love Just Ain t Enough", src: `${import.meta.env.BASE_URL}music/close/Sometimes%20Love%20Just%20Ain%20t%20Enough.mp3`, artist: "Patty Smyth" },
-        { title: "Someone Like You", src: `${import.meta.env.BASE_URL}music/close/Someone%20Like%20You.mp3`, artist: "Adele" },
-        { title: "Skyfall", src: `${import.meta.env.BASE_URL}music/close/Skyfall.mp3`, artist: "Adele" },
-        { title: "Love In The Dark", src: `${import.meta.env.BASE_URL}music/close/Love%20In%20The%20Dark.mp3`, artist: "Adele" },
-        { title: "Dynasty", src: `${import.meta.env.BASE_URL}music/close/Dynasty.mp3`, artist: "MIIA" },
-        { title: "Set Fire To The Rain", src: `${import.meta.env.BASE_URL}music/close/Set%20Fire%20To%20The%20Rain.mp3`, artist: "Adele" },
-        { title: "Wrecking Ball", src: `${import.meta.env.BASE_URL}music/close/Wrecking%20Ball.mp3`, artist: "Miley Cyrus" }
+        { title: "Runaway", src: getAssetPath("music/close/Runaway.mp3"), artist: "AURORA" },
+        { title: "To Die For", src: getAssetPath("music/close/To%20Die%20For.mp3"), artist: "Sam Smith" },
+        { title: "Cinnamon Girl", src: getAssetPath("music/close/Cinnamon%20Girl.mp3"), artist: "Lana Del Rey" },
+        { title: "Sometimes Love Just Ain t Enough", src: getAssetPath("music/close/Sometimes%20Love%20Just%20Ain%20t%20Enough.mp3"), artist: "Patty Smyth" },
+        { title: "Someone Like You", src: getAssetPath("music/close/Someone%20Like%20You.mp3"), artist: "Adele" },
+        { title: "Skyfall", src: getAssetPath("music/close/Skyfall.mp3"), artist: "Adele" },
+        { title: "Love In The Dark", src: getAssetPath("music/close/Love%20In%20The%20Dark.mp3"), artist: "Adele" },
+        { title: "Dynasty", src: getAssetPath("music/close/Dynasty.mp3"), artist: "MIIA" },
+        { title: "Set Fire To The Rain", src: getAssetPath("music/close/Set%20Fire%20To%20The%20Rain.mp3"), artist: "Adele" },
+        { title: "Wrecking Ball", src: getAssetPath("music/close/Wrecking%20Ball.mp3"), artist: "Miley Cyrus" }
     ];
 
     const playlist = isShutdown ? shutdownPlaylist : defaultPlaylist;

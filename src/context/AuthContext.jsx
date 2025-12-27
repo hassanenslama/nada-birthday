@@ -53,8 +53,19 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = async () => {
-        const { error } = await supabase.auth.signOut();
-        if (error) throw error;
+        try {
+            // Attempt standard sign out
+            await supabase.auth.signOut();
+        } catch (error) {
+            console.error("Supabase signOut error (ignoring to force logout):", error);
+        } finally {
+            // NUCLEAR OPTION: Manually clear everything
+            localStorage.clear();
+            sessionStorage.clear();
+            setCurrentUser(null);
+            setUserRole(null);
+            console.log("✅ Local session destroyed manually");
+        }
     };
 
     const value = {

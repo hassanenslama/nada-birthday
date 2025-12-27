@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Gamepad2, Heart, Puzzle, Palette, X, ChevronRight, UserPlus, CheckCheck } from 'lucide-react';
+import { Gamepad2, Heart, Puzzle, Palette, X, ChevronRight, UserPlus, CheckCheck, TreePine } from 'lucide-react';
 import { supabase } from '../../../supabase';
 import { useAuth } from '../../../context/AuthContext';
 import { useSiteStatus } from '../../../context/SiteStatusContext';
@@ -10,6 +10,11 @@ import MemoryPuzzle from './MemoryPuzzle';
 import TicTacToe from './games/TicTacToe';
 import MatchQuiz from './games/MatchQuiz';
 import LoveBoard from './games/LoveBoard';
+// Christmas Games
+import LoveDelivery from '../../Christmas/Games/LoveDelivery';
+import LoveDeliveryEnhanced from '../../Christmas/Games/LoveDeliveryEnhanced';
+import MemoryTree from '../../Christmas/Games/MemoryTree';
+import ChristmasGame from '../../Christmas/Games/ChristmasGame';
 
 const GAMES = [
     {
@@ -47,7 +52,35 @@ const GAMES = [
         color: 'from-gold to-yellow-600',
         component: MemoryPuzzle,
         isMultiplayer: false
-    }
+    },
+    {
+        id: 'love-delivery',
+        title: 'مهمة الحب ❤️',
+        subtitle: 'ساعد سانتا يوصل القلوب',
+        icon: Heart,
+        color: 'from-red-500 to-pink-600',
+        component: LoveDeliveryEnhanced,
+        isMultiplayer: false
+    },
+    {
+        id: 'memory-tree',
+        title: 'شجرة الذكريات 🎄',
+        subtitle: 'اجمع الأزواج المتشابهة',
+        icon: TreePine,
+        color: 'from-green-500 to-emerald-600',
+        component: MemoryTree,
+        isMultiplayer: false
+    },
+    // === CHRISTMAS ADVENTURE - Complete Game ===
+    {
+        id: 'christmas-adventure',
+        title: '🎄 Christmas Adventure',
+        subtitle: 'مغامرة سانتا الكاملة - العب الآن!',
+        icon: Gamepad2,
+        color: 'from-red-500 via-green-500 to-blue-600',
+        component: ChristmasGame,
+        isMultiplayer: false
+    },
 ];
 
 const GameHub = () => {
@@ -57,6 +90,33 @@ const GameHub = () => {
     const [inviting, setInviting] = useState(false);
     const [inviteSent, setInviteSent] = useState(false);
     const [isGuest, setIsGuest] = useState(false);
+    const [timeRemaining, setTimeRemaining] = useState({});
+
+    // Countdown Timer for Locked Games
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const now = Date.now();
+            const newRemaining = {};
+
+            GAMES.forEach(game => {
+                if (game.isLocked && game.unlockTime) {
+                    const diff = game.unlockTime - now;
+                    if (diff > 0) {
+                        const hours = Math.floor(diff / (1000 * 60 * 60));
+                        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                        newRemaining[game.id] = { hours, minutes, seconds, locked: true };
+                    } else {
+                        newRemaining[game.id] = { locked: false };
+                    }
+                }
+            });
+
+            setTimeRemaining(newRemaining);
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, []);
 
     const { registerHandler, unregisterHandler } = useBackButton();
 
@@ -84,6 +144,9 @@ const GameHub = () => {
     }, []);
 
     const handleSelectGame = (game) => {
+        // Don't allow selecting locked games
+        if (game.isLocked && timeRemaining[game.id]?.locked) return;
+
         setIsGuest(false); // Manually selected -> Host
         setSelectedGame(game);
     };
@@ -151,41 +214,54 @@ const GameHub = () => {
                         </div>
 
                         <div className="grid grid-cols-1 gap-4 max-w-md mx-auto">
-                            {GAMES.map((game, index) => (
-                                <motion.button
-                                    key={game.id}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: index * 0.1 }}
-                                    onClick={() => !isShutdown && handleSelectGame(game)}
-                                    disabled={isShutdown}
-                                    className={`relative group overflow-hidden rounded-2xl border border-white/10 p-1 ${isShutdown ? 'cursor-not-allowed opacity-50' : ''}`}
-                                >
-                                    <div className={`absolute inset-0 bg-gradient-to-r ${game.color} opacity-10 group-hover:opacity-20 transition-opacity`} />
+                            {GAMES.map((game, index) => {
+                                const isLocked = game.isLocked && timeRemaining[game.id]?.locked;
+                                const timer = timeRemaining[game.id];
 
-                                    <div className="relative bg-[#1a1a1a]/90 backdrop-blur-xl rounded-xl p-4 flex items-center gap-4 transition-transform group-hover:scale-[0.98]">
-                                        <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${game.color} flex items-center justify-center text-white shadow-lg`}>
-                                            <game.icon size={24} />
-                                        </div>
+                                return (
+                                    <motion.button
+                                        key={game.id}
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: index * 0.1 }}
+                                        onClick={() => !isShutdown && handleSelectGame(game)}
+                                        disabled={isShutdown || isLocked}
+                                        className={`relative group overflow-hidden rounded-2xl border border-white/10 p-1 ${isShutdown || isLocked ? 'cursor-not-allowed opacity-50' : ''
+                                            }`}
+                                    >
+                                        <div className={`absolute inset-0 bg-gradient-to-r ${game.color} opacity-10 group-hover:opacity-20 transition-opacity`} />
 
-                                        <div className="flex-1 text-right">
-                                            <h3 className="text-white font-bold text-lg font-cairo">{game.title}</h3>
-                                            <p className="text-gray-400 text-xs">{game.subtitle}</p>
-                                        </div>
-
-                                        {game.isMultiplayer && (
-                                            <div className="px-2 py-1 rounded-md bg-white/5 border border-white/10">
-                                                <span className={`text-[10px] font-mono flex items-center gap-1 ${isShutdown ? 'text-gray-500' : 'text-green-400'}`}>
-                                                    <span className={`w-1.5 h-1.5 rounded-full ${isShutdown ? 'bg-gray-500' : 'bg-green-500 animate-pulse'}`} />
-                                                    LIVE
-                                                </span>
+                                        <div className="relative bg-[#1a1a1a]/90 backdrop-blur-xl rounded-xl p-4 flex items-center gap-4 transition-transform group-hover:scale-[0.98]">
+                                            <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${game.color} flex items-center justify-center text-white shadow-lg ${isLocked ? 'opacity-50' : ''
+                                                }`}>
+                                                <game.icon size={24} />
                                             </div>
-                                        )}
 
-                                        <ChevronRight className="text-gray-600 group-hover:text-white transition-colors rotate-180" />
-                                    </div>
-                                </motion.button>
-                            ))}
+                                            <div className="flex-1 text-right">
+                                                <h3 className="text-white font-bold text-lg font-cairo">{game.title}</h3>
+                                                <p className="text-gray-400 text-xs">
+                                                    {isLocked && timer ? (
+                                                        <span className="font-mono text-orange-400">
+                                                            🔒 يفتح بعد: {String(timer.hours).padStart(2, '0')}:{String(timer.minutes).padStart(2, '0')}:{String(timer.seconds).padStart(2, '0')}
+                                                        </span>
+                                                    ) : game.subtitle}
+                                                </p>
+                                            </div>
+
+                                            {game.isMultiplayer && !isLocked && (
+                                                <div className="px-2 py-1 rounded-md bg-white/5 border border-white/10">
+                                                    <span className={`text-[10px] font-mono flex items-center gap-1 ${isShutdown ? 'text-gray-500' : 'text-green-400'}`}>
+                                                        <span className={`w-1.5 h-1.5 rounded-full ${isShutdown ? 'bg-gray-500' : 'bg-green-500 animate-pulse'}`} />
+                                                        LIVE
+                                                    </span>
+                                                </div>
+                                            )}
+
+                                            <ChevronRight className="text-gray-600 group-hover:text-white transition-colors rotate-180" />
+                                        </div>
+                                    </motion.button>
+                                );
+                            })}
                         </div>
                     </motion.div>
                 ) : (

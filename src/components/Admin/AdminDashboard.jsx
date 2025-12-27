@@ -36,6 +36,18 @@ const AdminDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [showMobileNav, setShowMobileNav] = useState(false);
 
+    const handleLogout = async () => {
+        console.log("🚪 Logging out...");
+        try {
+            await logout();
+            console.log("✅ Logout successful, redirecting...");
+            window.location.href = '/'; // Hard refresh to clear state
+        } catch (error) {
+            console.error("❌ Logout failed:", error);
+            window.location.reload(); // Fallback
+        }
+    };
+
     // State
     const [nadaProfile, setNadaProfile] = useState(null);
     const [nadaStats, setNadaStats] = useState({ quizScore: 0, quizAnswers: {}, unlockedCount: 0 });
@@ -528,7 +540,7 @@ const AdminDashboard = () => {
                     </button>
                     <div className="h-8 w-[1px] bg-white/10 mx-1 hidden md:block" />
                     <button onClick={() => { fetchUsersList(); setShowLinkModal(true); }} className="p-2.5 rounded-xl bg-[#1a1a1a] text-gray-400 hover:text-gold hover:bg-gold/10 transition border border-white/5 hidden md:block"><Settings size={20} /></button>
-                    <button onClick={logout} className="p-2.5 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 transition border border-red-500/20"><LogOut size={20} /></button>
+                    <button onClick={handleLogout} className="p-2.5 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 transition border border-red-500/20"><LogOut size={20} /></button>
                 </div>
             </header>
 
@@ -587,6 +599,10 @@ const AdminDashboard = () => {
                                     <button onClick={() => { fetchUsersList(); setShowLinkModal(true); window.history.back(); }} className="w-full flex items-center gap-3 p-3 rounded-xl text-gray-400 hover:bg-white/5">
                                         <Settings size={20} />
                                         <span>الإعدادات</span>
+                                    </button>
+                                    <button onClick={handleLogout} className="w-full flex items-center gap-3 p-3 rounded-xl text-red-400 hover:bg-red-500/10">
+                                        <LogOut size={20} />
+                                        <span>تسجيل الخروج</span>
                                     </button>
                                 </div>
                             </div>

@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Disc, Music, Volume2, Volume1, VolumeX, SkipForward, SkipBack, Pause, Play, ListMusic, X, User } from 'lucide-react';
+import { Disc, Music, Volume2, VolumeX, SkipForward, SkipBack, Pause, Play, ListMusic, X, User } from 'lucide-react';
 import { useMusic } from '../../../context/MusicContext';
 import { useAuth } from '../../../context/AuthContext';
 import { useSiteStatus } from '../../../context/SiteStatusContext';
@@ -21,6 +21,11 @@ const FloatingDisc = () => {
         showPlayer
     } = useMusic();
 
+    const [dragPosition, setDragPosition] = useState(() => {
+        const saved = localStorage.getItem('floating_disc_pos');
+        return saved ? JSON.parse(saved) : { x: 0, y: 0 };
+    });
+
     const formatTime = (seconds) => {
         if (isNaN(seconds)) return '0:00';
         const mins = Math.floor(seconds / 60);
@@ -29,14 +34,12 @@ const FloatingDisc = () => {
     };
 
     const { isShutdown } = useSiteStatus();
+    const { currentUser } = useAuth();
 
     const [showMenu, setShowMenu] = useState(false);
     const longPressTimerRef = useRef(null);
     const isLongPress = useRef(false);
     const isDragging = useRef(false); // Track dragging state
-
-    const { currentUser } = useAuth(); // Get user auth state
-    if (!currentUser || isPermanentlyDisabled || !showPlayer) return null;
 
     const handleMouseDown = () => {
         isLongPress.current = false;
@@ -48,44 +51,74 @@ const FloatingDisc = () => {
         }, 600); // 600ms for long press
     };
 
+    // Mutex: Pause if Christmas Music Starts
+    useEffect(() => {
+        const handleChristmasMusic = () => {
+            if (isPlaying) {
+                togglePlay();
+            }
+        };
+        window.addEventListener('christmas_music_start', handleChristmasMusic);
+        return () => window.removeEventListener('christmas_music_start', handleChristmasMusic);
+    }, [isPlaying, togglePlay]);
+
     const handleMouseUp = () => {
         if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
 
         // Prevent click if dragging or if long press happened
         if (!isDragging.current && !isLongPress.current) {
+            // If we are about to play (currently paused), tell others to stop
+            if (!isPlaying) {
+                window.dispatchEvent(new Event('main_music_start'));
+            }
             togglePlay();
         }
     };
 
+    const constraintsRef = useRef(null);
+
+    // Conditional Rendering Logic - MUST BE AFTER ALL HOOKS
+    if (!currentUser || isPermanentlyDisabled || !showPlayer) return null;
+
     return (
         <>
-            {/* The Floating Disc */}
+            {/* Constraints Container */}
+            <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-[45]" />
+
             {/* The Floating Disc */}
             <motion.div
-                className={`fixed bottom-24 left-4 z-[50] cursor-pointer group ${isShutdown ? 'grayscale' : ''}`}
+                className={`fixed top-1/2 -translate-y-1/2 left-4 z-[50] cursor-pointer group ${isShutdown ? 'grayscale' : ''}`}
+                style={{ x: dragPosition.x, y: dragPosition.y }}
 
                 // Unified Pointer Events (Handles Touch & Mouse better)
                 onPointerDown={handleMouseDown}
                 onPointerUp={handleMouseUp}
 
                 // Drag Logic
+                drag
+                dragConstraints={constraintsRef}
+                dragElastic={0}
+                dragMomentum={false}
                 onDragStart={() => {
                     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
                     isLongPress.current = false;
                     isDragging.current = true; // Start Drag
                 }}
-                onDragEnd={() => {
+                onDragEnd={(event, info) => {
+                    // Save position
+                    const newPos = {
+                        x: dragPosition.x + info.offset.x,
+                        y: dragPosition.y + info.offset.y
+                    };
+                    setDragPosition(newPos);
+                    localStorage.setItem('floating_disc_pos', JSON.stringify(newPos));
+
                     // Slight delay to prevent 'click' from firing immediately after drag release
                     setTimeout(() => {
                         isDragging.current = false;
                     }, 100);
                 }}
-
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
                 whileHover={{ scale: 1.1 }}
-                drag
-                dragConstraints={{ left: 0, right: 300, top: -500, bottom: 0 }}
             >
                 {/* Vinyl Effect */}
                 <div className="relative w-16 h-16 sm:w-20 sm:h-20">
@@ -171,7 +204,7 @@ const FloatingDisc = () => {
                                     onClick={() => setVolume(volume > 0 ? 0 : 0.5)}
                                     className="text-gold hover:text-white transition-colors"
                                 >
-                                    {volume === 0 ? <VolumeX size={20} /> : volume < 0.5 ? <Volume1 size={20} /> : <Volume2 size={20} />}
+                                    {volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
                                 </button>
 
                                 <div

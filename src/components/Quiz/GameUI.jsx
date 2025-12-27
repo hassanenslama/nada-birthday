@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { getAssetPath } from '../../utils/assets';
 
 const GameUI = ({ onAnswer, currentQuestion, totalQuestions, onRetry, onPrevious }) => {
     const hoverSoundRef = useRef(null);
@@ -188,7 +189,7 @@ const GameUI = ({ onAnswer, currentQuestion, totalQuestions, onRetry, onPrevious
             </div>
 
             {/* Hover Sound */}
-            <audio ref={hoverSoundRef} src="/sounds/click-sound.mp3" preload="auto" />
+            <audio ref={hoverSoundRef} src={getAssetPath("/sounds/click-sound.mp3")} preload="auto" />
         </div>
     );
 };

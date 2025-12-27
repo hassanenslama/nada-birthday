@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../supabase';
+import { getAssetPath } from '../utils/assets';
 import { useAuth } from '../context/AuthContext';
 import { Gamepad2, X, Check, Bell } from 'lucide-react';
 
@@ -29,8 +30,8 @@ const GlobalNotificationListener = ({ onNavigate }) => {
                     if (newNote.payload?.type === 'game_invite') {
                         setInvite(newNote);
                         const soundEnabled = localStorage.getItem('notification_sound_enabled') !== 'false';
-                        if (soundEnabled) {
-                            new Audio('/sounds/notification.mp3').play().catch(() => { });
+                        if (playSound) {
+                            new Audio(getAssetPath('/sounds/notification.mp3')).play().catch(() => { });
                         }
                     }
                 }

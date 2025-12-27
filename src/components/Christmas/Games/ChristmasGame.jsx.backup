@@ -1,0 +1,913 @@
+/**
+ * 🎄 Christmas Adventure Game - FINAL VERSION 🎅
+ * 
+ * A complete platformer game with:
+ * - Character Selection (Santa / Mrs. Santa)
+ * - Full Physics Engine
+ * - Multiple Levels
+ * - Collectibles & Power-ups
+ * - Boss Battles
+ * - Responsive Design
+ */
+
+import { useState, useRef, useEffect } from 'react';
+import AssetManager from '../../../game/AssetManager';
+import Player from '../../../game/Player';
+import LevelRenderer from '../../../game/LevelRenderer';
+import GameState from '../../../game/GameState';
+import ScoreManager from '../../../game/ScoreManager';
+import { GAME, PLAYER } from '../../../game/Constants';
+import { level1_1 } from '../../../game/levels/Level';
+import { useImmersiveMode } from '../../../context/ImmersiveModeContext.jsx';
+
+const ChristmasGame = () => {
+    const { setIsImmersive } = useImmersiveMode();
+
+    useEffect(() => {
+        // Enable Immersive Mode (Hide Hub UI)
+        setIsImmersive(true);
+
+        // Load leaderboard scores
+        setLeaderboardScores(scoreManagerRef.current.getScores());
+
+        return () => {
+            // Disable Immersive Mode (Show Hub UI)
+            setIsImmersive(false);
+        };
+    }, []);
+
+    // ═══════════════════════════════════════════════════════════
+    // GAME STATES
+    // ═══════════════════════════════════════════════════════════
+    const [gamePhase, setGamePhase] = useState('CHARACTER_SELECT'); // CHARACTER_SELECT, LOADING, PLAYING, PAUSED, GAME_OVER, VICTORY
+    const [leaderboardScores, setLeaderboardScores] = useState([]);
+    const [selectedCharacter, setSelectedCharacter] = useState(null); // 'mr-santa' or 'mrs-santa'
+    const [currentLevel, setCurrentLevel] = useState(1);
+    const [loadingProgress, setLoadingProgress] = useState(0);
+    const [error, setError] = useState(null);
+
+    // Game Refs (not React state to avoid re-render loops)
+    const assetManagerRef = useRef(null);
+    const playerRef = useRef(null);
+    const scoreManagerRef = useRef(new ScoreManager());
+    const levelRendererRef = useRef(null);
+    const gameStateRef = useRef(null);
+    const canvasRef = useRef(null);
+    const gameLoopRef = useRef(null); // Store RAF ID for cleanup
+
+    const inputRef = useRef({
+        left: false,
+        right: false,
+        jump: false,
+        jumpPressed: false,
+        jumpHandled: false,
+        up: false,
+        down: false,
+    });
+
+    // Touch controls for mobile
+    const touchControlsRef = useRef({
+        left: false,
+        right: false,
+        jump: false
+    });
+
+    // ═══════════════════════════════════════════════════════════
+    // CHARACTER SELECTION HANDLER
+    // ═══════════════════════════════════════════════════════════
+    const handleCharacterSelect = (character) => {
+        setSelectedCharacter(character);
+        setGamePhase('LOADING');
+        initializeGame(character);
+    };
+
+    // ═══════════════════════════════════════════════════════════
+    // GAME INITIALIZATION
+    // ═══════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
+    // GAME INITIALIZATION
+    // ═══════════════════════════════════════════════════════════
+    const initializeGame = async (character) => {
+        try {
+            console.log('🎮 Loading assets for character:', character);
+
+            // Load Assets
+            assetManagerRef.current = new AssetManager();
+            assetManagerRef.current.onProgress = (loaded, total) => {
+                setLoadingProgress(Math.floor((loaded / total) * 100));
+            };
+
+            await assetManagerRef.current.loadAll();
+            console.log('✅ Assets loaded!');
+
+            // Initialize Game Logic (Non-Canvas dependent)
+            levelRendererRef.current = new LevelRenderer(assetManagerRef.current);
+            levelRendererRef.current.loadLevel(level1_1);
+
+            gameStateRef.current = new GameState();
+
+            playerRef.current = new Player(assetManagerRef.current, character);
+            playerRef.current.x = 100;
+            playerRef.current.y = 300;
+
+            // Ready to play - this triggers render of Canvas
+            setGamePhase('PLAYING');
+
+        } catch (err) {
+            console.error('❌ Game initialization failed:', err);
+            setError(err.message);
+            setGamePhase('CHARACTER_SELECT');
+        }
+    };
+
+    // Effect to start game loop ONCE canvas is ready
+    useEffect(() => {
+        if (gamePhase === 'PLAYING' && canvasRef.current) {
+            console.log('🎬 Starting Game Loop...');
+            const canvas = canvasRef.current;
+            const ctx = canvas.getContext('2d');
+
+            // Responsive sizing
+            const maxWidth = window.innerWidth;
+            const maxHeight = window.innerHeight;
+            const aspectRatio = GAME.CANVAS_WIDTH / GAME.CANVAS_HEIGHT;
+
+            if (maxWidth / maxHeight > aspectRatio) {
+                canvas.height = maxHeight;
+                canvas.width = canvas.height * aspectRatio;
+            } else {
+                canvas.width = maxWidth;
+                canvas.height = canvas.width / aspectRatio;
+            }
+
+            startGameLoop(canvas, ctx);
+        }
+    }, [gamePhase]);
+
+    // ═══════════════════════════════════════════════════════════
+    // GAME LOOP
+    // ═══════════════════════════════════════════════════════════
+    const startGameLoop = (canvas, ctx) => {
+        let lastTime = Date.now();
+        const camera = { x: 0, y: 0 };
+
+        const loop = () => {
+            const currentTime = Date.now();
+            const deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+
+            const player = playerRef.current;
+            const levelRenderer = levelRendererRef.current;
+            const gameState = gameStateRef.current;
+
+            if (!player || !levelRenderer || !gameState) return;
+
+            // ═══════════════════════════════════════════════════════
+            // UPDATE PHASE
+            // ═══════════════════════════════════════════════════════
+
+            // Player Physics
+            const platform = levelRenderer.checkPlatformCollision(player);
+            const groundY = platform ? platform.y : 2000;
+
+            // Merge keyboard and touch inputs
+            const mergedInput = {
+                left: inputRef.current.left || touchControlsRef.current.left,
+                right: inputRef.current.right || touchControlsRef.current.right,
+                jump: inputRef.current.jump || touchControlsRef.current.jump,
+                jumpPressed: inputRef.current.jumpPressed || touchControlsRef.current.jump,
+                jumpHandled: inputRef.current.jumpHandled,
+                up: inputRef.current.up,
+                down: inputRef.current.down,
+            };
+
+            player.update(deltaTime, mergedInput, groundY);
+
+            // Death Zone
+            if (player.y > 1000) {
+                gameState.hitObstacle();
+                if (gameState.lives <= 0) {
+                    gameState.isGameOver = true;
+                    setGamePhase('GAME_OVER');
+                    return; // Stop loop
+                } else {
+                    // Respawn
+                    player.x = 100;
+                    player.y = 300;
+                    player.vx = 0;
+                    player.vy = 0;
+                }
+            }
+
+            // Collectibles
+            const collectible = levelRenderer.checkCollectibleCollision(player, gameState);
+            if (collectible) {
+                gameState.markCollected(collectible.id);
+
+                // Add particle effect
+                levelRenderer.addParticle(collectible.item.x + 25, collectible.item.y + 25, collectible.type);
+
+                if (collectible.type === 'heart') {
+                    gameState.collectHeart();
+                } else if (collectible.type === 'coin') {
+                    gameState.collectCoin();
+                }
+            }
+
+            // Obstacles
+            const obstacle = levelRenderer.checkObstacleCollision(player, gameState);
+            if (obstacle) {
+                gameState.markHit(obstacle.id);
+                gameState.hitObstacle();
+                player.invincible = true;
+                player.invincibleTimer = 1000;
+
+                // Particle effect for hit
+                levelRenderer.addParticle(player.x + 50, player.y + 50, 'spark');
+
+                // Camera shake
+                camera.x += (Math.random() - 0.5) * 20;
+                camera.y += (Math.random() - 0.5) * 20;
+
+                // Check if game over after hit
+                if (gameState.isGameOver) {
+                    setGamePhase('GAME_OVER');
+                    return; // Stop loop immediately
+                }
+            }
+
+            // Update Camera (Follow Player)
+            const targetCameraX = player.x - canvas.width / 3;
+            camera.x += (targetCameraX - camera.x) * 0.1;
+            camera.x = Math.max(0, camera.x);
+
+            // Check Finish Line Victory
+            if (levelRenderer.levelData && levelRenderer.levelData.finish) {
+                const finishLine = levelRenderer.levelData.finish;
+                const finishDistance = 240; // Width of finish line (3x size)
+
+                // Check if player reached finish
+                if (player.x + player.width >= finishLine.x &&
+                    player.x <= finishLine.x + finishDistance) {
+
+                    // Victory particles
+                    for (let i = 0; i < 20; i++) {
+                        levelRenderer.addParticle(
+                            finishLine.x + Math.random() * finishDistance,
+                            finishLine.y + Math.random() * 240,
+                            'coin'
+                        );
+                    }
+
+                    // Trigger Victory
+                    gameState.isVictory = true;
+                    setGamePhase('VICTORY');
+                    return; // Stop loop
+                }
+            }
+
+            // ═══════════════════════════════════════════════════════
+            // RENDER PHASE
+            // ═══════════════════════════════════════════════════════
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // World Space (with camera)
+            ctx.save();
+            ctx.translate(-camera.x, -camera.y);
+
+            levelRenderer.draw(ctx, camera, canvas.width, canvas.height, gameState);
+            player.draw(ctx);
+
+            ctx.restore();
+
+            // Screen Space (HUD)
+            drawHUD(ctx, canvas, gameState);
+
+            // Damage Flash
+            if (player.invincible) {
+                ctx.fillStyle = `rgba(255, 0, 0, ${Math.abs(Math.sin(Date.now() / 100)) * 0.3})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            // Continue Loop
+            gameLoopRef.current = requestAnimationFrame(loop);
+        };
+
+        loop();
+    };
+
+    // ═══════════════════════════════════════════════════════════
+    // HUD RENDERING
+    // ═══════════════════════════════════════════════════════════
+    const drawHUD = (ctx, canvas, gameState) => {
+        ctx.fillStyle = 'white';
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 3;
+        ctx.font = 'bold 24px Arial';
+
+        // Score
+        const scoreText = `🏆 ${gameState.score}`;
+        ctx.strokeText(scoreText, 10, 30);
+        ctx.fillText(scoreText, 10, 30);
+
+        // Hearts
+        const heartsText = `❤️ ${gameState.hearts}`;
+        ctx.strokeText(heartsText, 10, 60);
+        ctx.fillText(heartsText, 10, 60);
+
+        // Coins
+        const coinsText = `💰 ${gameState.coins}`;
+        ctx.strokeText(coinsText, 10, 90);
+        ctx.fillText(coinsText, 10, 90);
+
+        // Lives
+        const livesText = `💙 ${gameState.lives}`;
+        ctx.strokeText(livesText, 10, 120);
+        ctx.fillText(livesText, 10, 120);
+
+        // Controls
+        ctx.font = '16px Arial';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.fillText('← → Move | SPACE Jump', canvas.width - 200, 30);
+    };
+
+    // ═══════════════════════════════════════════════════════════
+    // INPUT HANDLING
+    // ═══════════════════════════════════════════════════════════
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            // ESC to pause
+            if (e.code === 'Escape') {
+                if (gamePhase === 'PLAYING') {
+                    setGamePhase('PAUSED');
+                }
+                return;
+            }
+
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                e.preventDefault();
+                inputRef.current.jump = true;
+                inputRef.current.jumpPressed = true;
+            }
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+                inputRef.current.left = true;
+            }
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+                inputRef.current.right = true;
+            }
+        };
+
+        const handleKeyUp = (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                inputRef.current.jump = false;
+                inputRef.current.jumpPressed = false;
+            }
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+                inputRef.current.left = false;
+            }
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+                inputRef.current.right = false;
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+            if (gameLoopRef.current) {
+                cancelAnimationFrame(gameLoopRef.current);
+            }
+        };
+    }, []);
+
+    // ═══════════════════════════════════════════════════════════
+    // RESTART HANDLER
+    // ═══════════════════════════════════════════════════════════
+    const handleRestart = () => {
+        // CRITICAL: Cancel existing loop to prevent double speed bug
+        if (gameLoopRef.current) {
+            cancelAnimationFrame(gameLoopRef.current);
+            gameLoopRef.current = null;
+        }
+
+        // Reset game state
+        if (gameStateRef.current) {
+            gameStateRef.current.reset();
+        }
+        if (playerRef.current) {
+            playerRef.current.x = 100;
+            playerRef.current.y = 300;
+            playerRef.current.vx = 0;
+            playerRef.current.vy = 0;
+        }
+
+        // Trigger PLAYING phase - useEffect will auto-start the game loop
+        setGamePhase('PLAYING');
+    };
+
+    const handleBackToMenu = () => {
+        if (gameLoopRef.current) {
+            cancelAnimationFrame(gameLoopRef.current);
+        }
+        setGamePhase('CHARACTER_SELECT');
+        setSelectedCharacter(null);
+    };
+
+    // ═══════════════════════════════════════════════════════════
+    // RENDER UI BASED ON GAME PHASE
+    // ═══════════════════════════════════════════════════════════
+
+    // CHARACTER SELECTION SCREEN
+    if (gamePhase === 'CHARACTER_SELECT') {
+        return (
+            <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gradient-to-br from-blue-900 via-purple-900 to-red-900 text-white overflow-hidden">
+                {/* Animated Snow Background */}
+                <div className="absolute inset-0 pointer-events-none">
+                    <div className="text-white text-2xl opacity-50 animate-pulse">❄️</div>
+                </div>
+
+                {/* Title */}
+                <h1 className="text-7xl font-bold mb-6 animate-bounce text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-white to-red-400 drop-shadow-[0_0_20px_rgba(255,255,255,0.8)]">
+                    🎄 Christmas Adventure 🎄
+                </h1>
+
+                <p className="text-xl text-blue-200 mb-12">Choose Your Hero:</p>
+
+                <div className="flex gap-12">
+                    {/* Santa Card */}
+                    <div
+                        onClick={() => handleCharacterSelect('mr-santa')}
+                        className="group relative cursor-pointer transform hover:scale-110 transition-all duration-300"
+                    >
+                        <div className="w-72 h-96 bg-red-800/50 rounded-3xl border-4 border-red-500 flex flex-col items-center justify-center backdrop-blur-md hover:bg-red-700/60 shadow-[0_0_40px_rgba(255,0,0,0.6)] hover:shadow-[0_0_60px_rgba(255,0,0,0.9)]">
+                            <div className="text-9xl mb-6 transform group-hover:rotate-12 transition-transform duration-300">🎅</div>
+                            <h3 className="text-4xl font-bold mb-2">Santa Claus</h3>
+                            <p className="text-gray-300 text-lg">The Classic Hero</p>
+                            <div className="mt-4 px-6 py-2 bg-red-600 rounded-full text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                                Click to Play!
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Mrs. Santa Card */}
+                    <div
+                        onClick={() => handleCharacterSelect('mrs-santa')}
+                        className="group relative cursor-pointer transform hover:scale-110 transition-all duration-300"
+                    >
+                        <div className="w-72 h-96 bg-pink-800/50 rounded-3xl border-4 border-pink-500 flex flex-col items-center justify-center backdrop-blur-md hover:bg-pink-700/60 shadow-[0_0_40px_rgba(255,100,200,0.6)] hover:shadow-[0_0_60px_rgba(255,100,200,0.9)]">
+                            <div className="text-9xl mb-6 transform group-hover:-rotate-12 transition-transform duration-300">🤶</div>
+                            <h3 className="text-4xl font-bold mb-2">Mrs. Santa</h3>
+                            <p className="text-gray-300 text-lg">The Christmas Queen</p>
+                            <div className="mt-4 px-6 py-2 bg-pink-600 rounded-full text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                                Click to Play!
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Controls Info */}
+                <div className="mt-16 text-gray-300 text-center">
+                    <p className="text-lg mb-2">🎮 Controls:</p>
+                    <p>← → Arrow Keys: Move | SPACE: Jump/Glide</p>
+                </div>
+            </div>
+        );
+    }
+
+    // PAUSED SCREEN
+    if (gamePhase === 'PAUSED') {
+        return (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black">
+                {/* Background Canvas (frozen frame) */}
+                <canvas ref={canvasRef} className="absolute inset-0 blur-sm brightness-50" />
+
+                {/* Pause Overlay */}
+                <div className="relative z-10 bg-black/90 backdrop-blur-xl rounded-3xl border-4 border-blue-500 p-12 max-w-xl mx-auto shadow-[0_0_100px_rgba(0,100,255,0.8)]">
+                    <h1 className="text-7xl font-bold text-blue-400 text-center mb-8 drop-shadow-[0_0_20px_rgba(0,100,255,1)]">
+                        ⏸️ PAUSED
+                    </h1>
+
+                    {/* Buttons */}
+                    <div className="flex flex-col gap-4">
+                        <button
+                            onClick={() => setGamePhase('PLAYING')}
+                            className="px-12 py-5 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold text-2xl rounded-xl shadow-lg transition-all duration-300 hover:scale-110 hover:shadow-[0_0_30px_rgba(0,255,0,0.8)] border-2 border-green-400"
+                        >
+                            ▶️ Resume
+                        </button>
+                        <button
+                            onClick={handleBackToMenu}
+                            className="px-12 py-5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold text-2xl rounded-xl shadow-lg transition-all duration-300 hover:scale-110 hover:shadow-[0_0_30px_rgba(255,0,0,0.8)] border-2 border-red-400"
+                        >
+                            🏠 Main Menu
+                        </button>
+                    </div>
+
+                    <p className="text-center text-gray-400 mt-6 text-sm">Press ESC to resume</p>
+                </div>
+            </div>
+        );
+    }
+
+    // GAME_OVER SCREEN
+    if (gamePhase === 'GAME_OVER') {
+        const finalScore = gameStateRef.current?.score || 0;
+        const finalCoins = gameStateRef.current?.coins || 0;
+        const finalHearts = gameStateRef.current?.hearts || 0;
+
+        // Save score to leaderboard
+        const playerName = selectedCharacter === 'mr-santa' ? 'حسانين' : 'ندى';
+        scoreManagerRef.current.saveScore(playerName, finalScore);
+        setLeaderboardScores(scoreManagerRef.current.getScores());
+
+        return (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black">
+                <canvas ref={canvasRef} className="absolute inset-0 blur-sm brightness-50" />
+                <div className="relative z-10 bg-black/90 backdrop-blur-xl rounded-3xl border-4 border-red-500 p-12 max-w-2xl mx-auto shadow-[0_0_100px_rgba(255,0,0,0.8)]">
+                    <h1 className="text-7xl font-bold text-red-500 text-center mb-8 drop-shadow-[0_0_20px_rgba(255,0,0,1)] animate-pulse">
+                        GAME OVER
+                    </h1>
+                    <div className="bg-gray-900/50 rounded-xl p-8 mb-8 border-2 border-gray-700">
+                        <h2 className="text-3xl font-bold text-white mb-6 text-center">Final Stats</h2>
+                        <div className="grid grid-cols-3 gap-6 text-center">
+                            <div>
+                                <div className="text-5xl mb-2">🏆</div>
+                                <div className="text-2xl font-bold text-yellow-400">{finalScore}</div>
+                                <div className="text-sm text-gray-400">Score</div>
+                            </div>
+                            <div>
+                                <div className="text-5xl mb-2">💰</div>
+                                <div className="text-2xl font-bold text-yellow-400">{finalCoins}</div>
+                                <div className="text-sm text-gray-400">Coins</div>
+                            </div>
+                            <div>
+                                <div className="text-5xl mb-2">❤️</div>
+                                <div className="text-2xl font-bold text-red-400">{finalHearts}</div>
+                                <div className="text-sm text-gray-400">Hearts</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex gap-4 justify-center">
+                        <button
+                            onClick={handleRestart}
+                            className="px-10 py-4 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold text-xl rounded-xl shadow-lg transition-all duration-300 hover:scale-110 hover:shadow-[0_0_30px_rgba(0,255,0,0.8)] border-2 border-green-400"
+                        >
+                            🔄 Try Again
+                        </button>
+                        <button
+                            onClick={handleBackToMenu}
+                            className="px-10 py-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold text-xl rounded-xl shadow-lg transition-all duration-300 hover:scale-110 hover:shadow-[0_0_30px_rgba(0,100,255,0.8)] border-2 border-blue-400"
+                        >
+                            🏠 Main Menu
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // LOADING SCREEN
+    if (gamePhase === 'LOADING') {
+        return (
+            <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gradient-to-b from-blue-900 via-purple-900 to-indigo-900 text-white">
+                <div className="text-8xl mb-8 animate-bounce">{selectedCharacter === 'mr-santa' ? '🎅' : '🤶'}</div>
+                <h1 className="text-5xl font-bold mb-12">Loading Christmas Magic...</h1>
+                <div className="w-[500px] h-10 bg-gray-800 rounded-full overflow-hidden border-4 border-white/50 shadow-lg">
+                    <div
+                        className="h-full bg-gradient-to-r from-green-400 via-yellow-500 to-red-500 transition-all duration-300 flex items-center justify-center"
+                        style={{ width: `${loadingProgress}%` }}
+                    >
+                        <span className="text-white font-bold text-lg drop-shadow-lg">{loadingProgress}%</span>
+                    </div>
+                </div>
+                <p className="mt-6 text-xl text-gray-300">Preparing your adventure...</p>
+            </div>
+        );
+    }
+
+    // VICTORY SCREEN
+    if (gamePhase === 'VICTORY') {
+        const finalScore = gameStateRef.current?.score || 0;
+        const finalCoins = gameStateRef.current?.coins || 0;
+        const finalHearts = gameStateRef.current?.hearts || 0;
+
+        // Save score to leaderboard
+        const playerName = selectedCharacter === 'mr-santa' ? 'حسانين' : 'ندى';
+        scoreManagerRef.current.saveScore(playerName, finalScore);
+        setLeader
+
+        boardScores(scoreManagerRef.current.getScores());
+
+        return (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black">
+                <canvas ref={canvasRef} className="absolute inset-0 blur-sm brightness-75" />
+                <div className="relative z-10 bg-black/90 backdrop-blur-xl rounded-3xl border-4 border-green-500 p-12 max-w-2xl mx-auto shadow-[0_0_100px_rgba(0,255,0,0.8)]">
+                    <h1 className="text-7xl font-bold text-green-400 text-center mb-8 drop-shadow-[0_0_20px_rgba(0,255,0,1)] animate-bounce">
+                        🎉 VICTORY! 🎉
+                    </h1>
+                    <div className="bg-gray-900/50 rounded-xl p-8 mb-8 border-2 border-gray-700">
+                        <h2 className="text-3xl font-bold text-white mb-6 text-center">Level Complete!</h2>
+                        <div className="grid grid-cols-3 gap-6 text-center">
+                            <div>
+                                <div className="text-5xl mb-2">🏆</div>
+                                <div className="text-2xl font-bold text-yellow-400">{finalScore}</div>
+                                <div className="text-sm text-gray-400">Score</div>
+                            </div>
+                            <div>
+                                <div className="text-5xl mb-2">💰</div>
+                                <div className="text-2xl font-bold text-yellow-400">{finalCoins}</div>
+                                <div className="text-sm text-gray-400">Coins</div>
+                            </div>
+                            <div>
+                                <div className="text-5xl mb-2">❤️</div>
+                                <div className="text-2xl font-bold text-red-400">{finalHearts}</div>
+                                <div className="text-sm text-gray-400">Hearts</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex gap-4 justify-center">
+                        <button
+                            onClick={handleRestart}
+                            className="px-10 py-4 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold text-xl rounded-xl shadow-lg transition-all duration-300 hover:scale-110 hover:shadow-[0_0_30px_rgba(0,255,0,0.8)] border-2 border-green-400"
+                        >
+                            🔄 Play Again
+                        </button>
+                        <button
+                            onClick={handleBackToMenu}
+                            className="px-10 py-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold text-xl rounded-xl shadow-lg transition-all duration-300 hover:scale-110 hover:shadow-[0_0_30px_rgba(0,100,255,0.8)] border-2 border-blue-400"
+                        >
+                            🏠 Main Menu
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // PLAYING SCREEN
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
+    const handleTouchButton = (button, pressed) => {
+        touchControlsRef.current[button] = pressed;
+    };
+
+    return (
+        <div className="fixed inset-0 z-[9999] bg-black flex items-center justify-center">
+            <canvas ref={canvasRef} className="border-4 border-white shadow-[0_0_50px_rgba(255,255,255,0.5)]" />
+
+            {/* Pause Button */}
+            <button
+                onClick={() => setGamePhase('PAUSED')}
+                className="absolute top-4 right-4 w-14 h-14 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-3xl transition-all duration-200 hover:scale-110 border-2 border-white/30"
+            >
+                ⏸️
+            </button>
+
+            {/* Touch Controls - Mobile Only */}
+            {isMobile && (
+                <div className="absolute inset-0 pointer-events-none">
+                    <div className="absolute bottom-4 left-4 flex gap-2 pointer-events-auto">
+                        <button
+                            onTouchStart={() => handleTouchButton('left', true)}
+                            onTouchEnd={() => handleTouchButton('left', false)}
+                            className="w-16 h-16 bg-white/30 active:bg-white/70 rounded-xl flex items-center justify-center text-3xl transition-all duration-100 select-none active:scale-95"
+                        >
+                            ⬅️
+                        </button>
+                        <button
+                            onTouchStart={() => handleTouchButton('right', true)}
+                            onTouchEnd={() => handleTouchButton('right', false)}
+                            className="w-16 h-16 bg-white/30 active:bg-white/70 rounded-xl flex items-center justify-center text-3xl transition-all duration-100 select-none active:scale-95"
+                        >
+                            ➡️
+                        </button>
+                    </div>
+                    <div className="absolute bottom-4 right-4 pointer-events-auto">
+                        <button
+                            onTouchStart={() => handleTouchButton('jump', true)}
+                            onTouchEnd={() => handleTouchButton('jump', false)}
+                            className="w-20 h-20 bg-white/30 active:bg-white/70 rounded-xl flex items-center justify-center text-4xl transition-all duration-100 select-none active:scale-95"
+                        >
+                            ⬆️
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default ChristmasGame;
+const finalScore = gameStateRef.current?.score || 0;
+const finalCoins = gameStateRef.current?.coins || 0;
+const finalHearts = gameStateRef.current?.hearts || 0;
+
+// Save score to leaderboard
+const playerName = selectedCharacter === 'mr-santa' ? 'حسانين' : 'ندى';
+scoreManagerRef.current.saveScore(playerName, finalScore);
+setLeaderboardScores(scoreManagerRef.current.getScores());
+
+return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black">
+        {/* Background Canvas (frozen frame) */}
+        <canvas ref={canvasRef} className="absolute inset-0 blur-sm brightness-50" />
+
+        {/* Game Over Overlay */}
+        <div className="relative z-10 bg-black/90 backdrop-blur-xl rounded-3xl border-4 border-red-500 p-12 max-w-2xl mx-auto shadow-[0_0_100px_rgba(255,0,0,0.8)]">
+            <h1 className="text-7xl font-bold text-red-500 text-center mb-8 drop-shadow-[0_0_20px_rgba(255,0,0,1)] animate-pulse">
+                GAME OVER
+            </h1>
+
+    // LOADING SCREEN
+            if (gamePhase === 'LOADING') {
+            return (
+            <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gradient-to-b from-blue-900 via-purple-900 to-indigo-900 text-white">
+                <div className="text-8xl mb-8 animate-bounce">{selectedCharacter === 'mr-santa' ? '🎅' : '🤶'}</div>
+                <h1 className="text-5xl font-bold mb-12">Loading Christmas Magic...</h1>
+
+                {/* Progress Bar */}
+                <div className="w-[500px] h-10 bg-gray-800 rounded-full overflow-hidden border-4 border-white/50 shadow-lg">
+                    <div
+                        className="h-full bg-gradient-to-r from-green-400 via-yellow-500 to-red-500 transition-all duration-300 flex items-center justify-center"
+                        style={{ width: `${loadingProgress}%` }}
+                    >
+                        <span className="text-white font-bold text-lg drop-shadow-lg">{loadingProgress}%</span>
+                    </div>
+                </div>
+
+                <p className="mt-6 text-xl text-gray-300">Preparing your adventure...</p>
+            </div>
+            );
+        }
+
+            // GAME OVER SCREEN
+            if (gamePhase === 'GAME_OVER') {
+            const finalScore = gameStateRef.current?.score || 0;
+            const finalCoins = gameStateRef.current?.coins || 0;
+            const finalHearts = gameStateRef.current?.hearts || 0;
+
+            return (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black">
+                {/* Background Canvas (frozen frame) */}
+                <canvas ref={canvasRef} className="absolute inset-0 blur-sm brightness-50" />
+
+                {/* Game Over Overlay */}
+                <div className="relative z-10 bg-black/90 backdrop-blur-xl rounded-3xl border-4 border-red-500 p-12 max-w-2xl mx-auto shadow-[0_0_100px_rgba(255,0,0,0.8)]">
+                    <h1 className="text-7xl font-bold text-red-500 text-center mb-8 drop-shadow-[0_0_20px_rgba(255,0,0,1)] animate-pulse">
+                        GAME OVER
+                    </h1>
+
+                    {/* Stats */}
+                    <div className="bg-gray-900/50 rounded-xl p-8 mb-8 border-2 border-gray-700">
+                        <h2 className="text-3xl font-bold text-white mb-6 text-center">Final Stats</h2>
+                        <div className="grid grid-cols-3 gap-6 text-center">
+                            <div>
+                                <div className="text-5xl mb-2">🏆</div>
+                                <div className="text-2xl font-bold text-yellow-400">{finalScore}</div>
+                                <div className="text-sm text-gray-400">Score</div>
+                            </div>
+                            <div>
+                                <div className="text-5xl mb-2">💰</div>
+                                <div className="text-2xl font-bold text-yellow-400">{finalCoins}</div>
+                                <div className="text-sm text-gray-400">Coins</div>
+                            </div>
+                            <div>
+                                <div className="text-5xl mb-2">❤️</div>
+                                <div className="text-2xl font-bold text-red-400">{finalHearts}</div>
+                                <div className="text-sm text-gray-400">Hearts</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Buttons */}
+                    <div className="flex gap-4 justify-center">
+                        <button
+                            onClick={handleRestart}
+                            className="px-10 py-4 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold text-xl rounded-xl shadow-lg transition-all duration-300 hover:scale-110 hover:shadow-[0_0_30px_rgba(0,255,0,0.8)] border-2 border-green-400"
+                        >
+                            🔄 Try Again
+                        </button>
+                        <button
+                            onClick={handleBackToMenu}
+                            className="px-10 py-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold text-xl rounded-xl shadow-lg transition-all duration-300 hover:scale-110 hover:shadow-[0_0_30px_rgba(0,100,255,0.8)] border-2 border-blue-400"
+                        >
+                            🏠 Main Menu
+                        </button>
+                    </div>
+                </div>
+            </div>
+            );
+        }
+
+            // VICTORY SCREEN
+            if (gamePhase === 'VICTORY') {
+            const finalScore = gameStateRef.current?.score || 0;
+            const finalCoins = gameStateRef.current?.coins || 0;
+            const finalHearts = gameStateRef.current?.hearts || 0;
+
+            return (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black">
+                {/* Background Canvas (frozen frame) */}
+                <canvas ref={canvasRef} className="absolute inset-0 blur-sm brightness-75" />
+
+                {/* Victory Overlay */}
+                <div className="relative z-10 bg-black/90 backdrop-blur-xl rounded-3xl border-4 border-green-500 p-12 max-w-2xl mx-auto shadow-[0_0_100px_rgba(0,255,0,0.8)]">
+                    <h1 className="text-7xl font-bold text-green-400 text-center mb-8 drop-shadow-[0_0_20px_rgba(0,255,0,1)] animate-bounce">
+                        🎉 VICTORY! 🎉
+                    </h1>
+
+                    {/* Stats */}
+                    <div className="bg-gray-900/50 rounded-xl p-8 mb-8 border-2 border-gray-700">
+                        <h2 className="text-3xl font-bold text-white mb-6 text-center">Level Complete!</h2>
+                        <div className="grid grid-cols-3 gap-6 text-center">
+                            <div>
+                                <div className="text-5xl mb-2">🏆</div>
+                                <div className="text-2xl font-bold text-yellow-400">{finalScore}</div>
+                                <div className="text-sm text-gray-400">Score</div>
+                            </div>
+                            <div>
+                                <div className="text-5xl mb-2">💰</div>
+                                <div className="text-2xl font-bold text-yellow-400">{finalCoins}</div>
+                                <div className="text-sm text-gray-400">Coins</div>
+                            </div>
+                            <div>
+                                <div className="text-5xl mb-2">❤️</div>
+                                <div className="text-2xl font-bold text-red-400">{finalHearts}</div>
+                                <div className="text-sm text-gray-400">Hearts</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Buttons */}
+                    <div className="flex gap-4 justify-center">
+                        <button
+                            onClick={handleRestart}
+                            className="px-10 py-4 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold text-xl rounded-xl shadow-lg transition-all duration-300 hover:scale-110 hover:shadow-[0_0_30px_rgba(0,255,0,0.8)] border-2 border-green-400"
+                        >
+                            🔄 Play Again
+                        </button>
+                        <button
+                            onClick={handleBackToMenu}
+                            className="px-10 py-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold text-xl rounded-xl shadow-lg transition-all duration-300 hover:scale-110 hover:shadow-[0_0_30px_rgba(0,100,255,0.8)] border-2 border-blue-400"
+                        >
+                            🏠 Main Menu
+                        </button>
+                    </div>
+                </div>
+            </div>
+            );
+        }
+
+            // PLAYING SCREEN
+            // Detect mobile device
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
+
+        // Touch button handler
+        const handleTouchButton = (button, pressed) => {
+                touchControlsRef.current[button] = pressed;
+        };
+
+            return (
+            <div className="fixed inset-0 z-[9999] bg-black flex items-center justify-center">
+                <canvas ref={canvasRef} className="border-4 border-white shadow-[0_0_50px_rgba(255,255,255,0.5)]" />
+
+                {/* Touch Controls - Mobile Only */}
+                {isMobile && (
+                    <div className="absolute inset-0 pointer-events-none">
+                        {/* Left/Right Movement */}
+                        <div className="absolute bottom-4 left-4 flex gap-2 pointer-events-auto">
+                            <button
+                                onTouchStart={() => handleTouchButton('left', true)}
+                                onTouchEnd={() => handleTouchButton('left', false)}
+                                className="w-16 h-16 bg-white/30 active:bg-white/70 rounded-xl flex items-center justify-center text-3xl transition-all duration-100 select-none active:scale-95"
+                            >
+                                ⬅️
+                            </button>
+                            <button
+                                onTouchStart={() => handleTouchButton('right', true)}
+                                onTouchEnd={() => handleTouchButton('right', false)}
+                                className="w-16 h-16 bg-white/30 active:bg-white/70 rounded-xl flex items-center justify-center text-3xl transition-all duration-100 select-none active:scale-95"
+                            >
+                                ➡️
+                            </button>
+                        </div>
+
+                        {/* Jump */}
+                        <div className="absolute bottom-4 right-4 pointer-events-auto">
+                            <button
+                                onTouchStart={() => handleTouchButton('jump', true)}
+                                onTouchEnd={() => handleTouchButton('jump', false)}
+                                className="w-20 h-20 bg-white/30 active:bg-white/70 rounded-xl flex items-center justify-center text-4xl transition-all duration-100 select-none active:scale-95"
+                            >
+                                ⬆️
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+            );
+    };
+
+            export default ChristmasGame;

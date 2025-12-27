@@ -1,5 +1,6 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { getAssetPath } from '../../../utils/assets';
 
 const HeartbeatAnimation = () => {
     return (
@@ -20,39 +21,31 @@ const HeartbeatAnimation = () => {
             />
 
             <div className="relative z-10">
-                {/* Main Pulsing Heart */}
-                <svg width="200" height="200" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="filter drop-shadow-[0_0_20px_rgba(220,38,38,0.5)]">
-                    <motion.path
-                        d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
-                        fill="url(#heartGradient)"
-                        animate={{
-                            scale: [1, 1.1, 1, 1.05, 1], // The "Lub-Dub" heartbeat pattern
-                        }}
-                        transition={{
-                            duration: 1.2,
-                            repeat: Infinity,
-                            times: [0, 0.15, 0.3, 0.45, 1], // Timing to simulate real beat
-                            ease: "easeInOut"
-                        }}
-                    />
-                    <defs>
-                        <linearGradient id="heartGradient" x1="2" y1="3" x2="22" y2="21" gradientUnits="userSpaceOnUse">
-                            <stop stopColor="#ff0000" />
-                            <stop offset="1" stopColor="#990000" />
-                        </linearGradient>
-                    </defs>
-                </svg>
+                {/* Main Pulsing Heart - Now using Love-santa image */}
+                <motion.img
+                    src={getAssetPath("/images/Love-santa.gif")}
+                    alt="Heart"
+                    className="w-[200px] h-[200px] object-contain filter drop-shadow-[0_0_20px_rgba(220,38,38,0.5)]"
+                    animate={{
+                        scale: [1, 1.1, 1, 1.05, 1], // The "Lub-Dub" heartbeat pattern
+                    }}
+                    transition={{
+                        duration: 1.2,
+                        repeat: Infinity,
+                        times: [0, 0.15, 0.3, 0.45, 1], // Timing to simulate real beat
+                        ease: "easeInOut"
+                    }}
+                />
 
-                {/* Inner Glow Lines/Details */}
-                <motion.svg
-                    width="200"
-                    height="200"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    className="absolute top-0 left-0 mix-blend-overlay opacity-50"
+                {/* Christmas Hat Overlay */}
+                <motion.div
+                    className="absolute -top-12 -right-4 text-6xl filter drop-shadow-lg z-20 pointer-events-none"
+                    initial={{ rotate: 15 }}
+                    animate={{ rotate: [15, 5, 15] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                 >
-                    <path d="M7 5C5 5 3.5 6.5 3.5 8.5" stroke="white" strokeWidth="1" strokeLinecap="round" />
-                </motion.svg>
+                    🎅
+                </motion.div>
             </div>
 
             {/* Floating Particles Heart Emission */}

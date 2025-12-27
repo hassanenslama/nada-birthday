@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, useLocation } from 'react-router-dom';
-import Teaser from './components/Teaser';
+
 import Quiz from './components/Quiz';
 import MainApp from './components/MainApp/MainApp';
 import { supabase } from './supabase';
@@ -106,9 +106,6 @@ const AppContent = () => {
     }
   };
 
-  if (phase === 'teaser') {
-    return <Teaser onUnlock={handleUnlock} />;
-  }
 
   if (phase === 'quiz') {
     return <Quiz onComplete={handleQuizComplete} />;
@@ -127,6 +124,8 @@ import { BackButtonProvider } from './context/BackButtonContext';
 import { ProfileProvider } from './context/ProfileContext';
 import { SiteStatusProvider } from './context/SiteStatusContext';
 
+import { ImmersiveModeProvider } from './context/ImmersiveModeContext.jsx';
+
 function App() {
   return (
     <Router>
@@ -136,8 +135,10 @@ function App() {
             <PresenceProvider>
               <SiteStatusProvider>
                 <MusicProvider>
-                  <AppContent />
-                  <FloatingDisc />
+                  <ImmersiveModeProvider>
+                    <AppContent />
+                    <FloatingDisc />
+                  </ImmersiveModeProvider>
                 </MusicProvider>
               </SiteStatusProvider>
             </PresenceProvider>

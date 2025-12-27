@@ -188,13 +188,18 @@ const GuideItemCard = ({ item, activeCategory, variants, onExpand }) => {
     // Actually we parsed it in parent.
 
     const handleNext = (e) => {
-        e.stopPropagation();
+        if (e) e.stopPropagation();
         setCurrentStep((prev) => (prev + 1) % steps.length);
     };
 
     const handlePrev = (e) => {
-        e.stopPropagation();
+        if (e) e.stopPropagation();
         setCurrentStep((prev) => (prev - 1 + steps.length) % steps.length);
+    };
+
+    const swipeConfidenceThreshold = 10000;
+    const swipePower = (offset, velocity) => {
+        return Math.abs(offset) * velocity;
     };
 
     return (
@@ -234,6 +239,17 @@ const GuideItemCard = ({ item, activeCategory, variants, onExpand }) => {
                         src={steps[currentStep]?.url}
                         alt={`Step ${currentStep + 1}`}
                         className="w-full h-full object-contain bg-[#050505]"
+                        drag={hasMultipleSteps ? "x" : false}
+                        dragConstraints={{ left: 0, right: 0 }}
+                        dragElastic={1}
+                        onDragEnd={(e, { offset, velocity }) => {
+                            const swipe = swipePower(offset.x, velocity.x);
+                            if (swipe < -swipeConfidenceThreshold) {
+                                handleNext();
+                            } else if (swipe > swipeConfidenceThreshold) {
+                                handlePrev();
+                            }
+                        }}
                     />
                 </AnimatePresence>
 
@@ -242,13 +258,13 @@ const GuideItemCard = ({ item, activeCategory, variants, onExpand }) => {
                     <>
                         <button
                             onClick={handlePrev}
-                            className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 text-white rounded-full hover:bg-gold hover:text-black transition-all opacity-0 group-hover/slider:opacity-100"
+                            className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 text-white rounded-full hover:bg-gold hover:text-black transition-all z-10"
                         >
                             <ChevronLeft size={20} />
                         </button>
                         <button
                             onClick={handleNext}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 text-white rounded-full hover:bg-gold hover:text-black transition-all opacity-0 group-hover/slider:opacity-100"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 text-white rounded-full hover:bg-gold hover:text-black transition-all z-10"
                         >
                             <ChevronRight size={20} />
                         </button>
