@@ -60,23 +60,13 @@ const FlipCard = ({ value, label, isFrozen }) => {
         <div className="flex flex-col items-center">
             {/* Glassmorphic Container */}
             <div className={`relative group perspective ${isFrozen ? 'grayscale opacity-50' : ''}`}>
-                {/* Decoration: Santa Hat on 'DAYS' */}
-                {isChristmas && label === 'Days' && (
-                    <motion.div
-                        initial={{ y: -10, rotate: -10 }}
-                        animate={{ y: 0, rotate: -5 }}
-                        transition={{ repeat: Infinity, repeatType: "reverse", duration: 2 }}
-                        className="absolute -top-6 -left-4 z-20 text-4xl filter drop-shadow-lg"
-                    >
-                        🎅
-                    </motion.div>
-                )}
+
 
                 <div className={`relative w-16 h-20 sm:w-24 sm:h-32 backdrop-blur-xl rounded-xl sm:rounded-2xl border flex items-center justify-center overflow-hidden transition-all duration-300 ${isFrozen
-                        ? 'bg-gray-900/50 border-gray-800'
-                        : isChristmas
-                            ? 'bg-red-900/30 border-green-500/30 shadow-[0_0_15px_rgba(220,38,38,0.3)] group-hover:border-gold group-hover:shadow-[0_0_25px_rgba(255,215,0,0.4)]'
-                            : 'bg-black/40 border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] group-hover:border-gold/50 group-hover:shadow-[0_0_20px_rgba(255,215,0,0.2)]'
+                    ? 'bg-gray-900/50 border-gray-800'
+                    : isChristmas
+                        ? 'bg-red-900/30 border-green-500/30 shadow-[0_0_15px_rgba(220,38,38,0.3)] group-hover:border-gold group-hover:shadow-[0_0_25px_rgba(255,215,0,0.4)]'
+                        : 'bg-black/40 border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] group-hover:border-gold/50 group-hover:shadow-[0_0_20px_rgba(255,215,0,0.2)]'
                     }`}>
 
                     {/* Background Details */}
@@ -95,10 +85,10 @@ const FlipCard = ({ value, label, isFrozen }) => {
                             animate={{ y: 0, opacity: 1 }}
                             exit={{ y: -20, opacity: 0 }}
                             className={`relative z-10 text-3xl sm:text-5xl font-bold font-mono tabular-nums drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${isFrozen
-                                    ? 'text-gray-400'
-                                    : isChristmas
-                                        ? 'text-gold'
-                                        : 'text-gold'
+                                ? 'text-gray-400'
+                                : isChristmas
+                                    ? 'text-gold'
+                                    : 'text-gold'
                                 }`}
                         >
                             {String(value).padStart(2, '0')}
@@ -114,10 +104,10 @@ const FlipCard = ({ value, label, isFrozen }) => {
 
             {/* Label */}
             <span className={`mt-2 sm:mt-4 text-[10px] sm:text-sm font-medium uppercase tracking-widest font-cairo ${isFrozen
-                    ? 'text-gray-600'
-                    : isChristmas
-                        ? 'text-green-400 font-bold drop-shadow-sm'
-                        : 'text-gray-400'
+                ? 'text-gray-600'
+                : isChristmas
+                    ? 'text-green-400 font-bold drop-shadow-sm'
+                    : 'text-gray-400'
                 }`}>
                 {label}
             </span>

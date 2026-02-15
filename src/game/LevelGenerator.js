@@ -30,8 +30,9 @@ const WORLD_CONFIG = {
 };
 
 class LevelGenerator {
-    constructor(worldTypeId = 'village') {
+    constructor(worldTypeId = 'village', level = 1) {
         this.worldType = worldTypeId;
+        this.level = level;
         this.config = WORLD_CONFIG[worldTypeId] || WORLD_CONFIG.village;
 
         this.currentX = 0;
@@ -77,8 +78,9 @@ class LevelGenerator {
      * @param {number} playerX - Current player position
      * @param {number} viewWidth - Screen width to calculate "render distance"
      * @param {number} targetDist - Distance to spawn finish line (optional)
+     * @param {GameState} gameState - Optional game state for smart cleanup
      */
-    update(playerX, viewWidth, targetDist = Infinity) {
+    update(playerX, viewWidth, targetDist = Infinity, gameState = null) {
         // 1. Generate ahead (Buffer: 2 screens width)
         const renderDistance = playerX + (viewWidth * 2);
 
@@ -98,7 +100,7 @@ class LevelGenerator {
 
         // 2. Cleanup behind (Optimization) - Memory Management
         const cleanupThreshold = playerX - (viewWidth * 2); // Increased buffer to avoid deleting visible back
-        this.cleanupEntities(cleanupThreshold);
+        this.cleanupEntities(cleanupThreshold, gameState);
     }
 
     /**
@@ -121,13 +123,17 @@ class LevelGenerator {
 
         // 2. Finish Line Flag (Collectible Type)
         // Positioned at the end of the runway
-        this.activeEntities.collectibles.push({
+        const finishLine = {
             x: startX + 600,
             y: groundY - 120, // Height of flag
             type: 'collectible-finish', // Special type
             width: 80,
-            height: 120
-        });
+            height: 120,
+            id: 'finish-line' // Fixed Unique ID
+        };
+
+        this.activeEntities.collectibles.push(finishLine);
+        this.activeEntities.finish = finishLine; // Expose for specific renderer logic
 
         this.currentX = startX + width;
         this.finishLineSpawned = true;
@@ -210,6 +216,7 @@ class LevelGenerator {
     populatePlatform(x, y, width) {
         // Smart placement logic
         const slots = Math.floor(width / 50); // 50px slots
+        const generateId = () => Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 
         // 1. Obstacles (Chimneys/Ice)
         if (Math.random() < (0.3 * this.difficulty)) {
@@ -220,7 +227,8 @@ class LevelGenerator {
             this.activeEntities.obstacles.push({
                 x: obstacleX,
                 y: y - 60, // Adjusted from 100 to 60 to sit on platform
-                type: this.config.obstacle
+                type: this.config.obstacle,
+                id: generateId()
             });
         }
 
@@ -231,7 +239,8 @@ class LevelGenerator {
                 this.activeEntities.collectibles.push({
                     x: x + 50 + (i * 40),
                     y: y - 60 - (Math.sin(i) * 20), // Arc effect
-                    type: 'coin'
+                    type: 'coin',
+                    id: generateId()
                 });
             }
         }
@@ -249,13 +258,28 @@ class LevelGenerator {
 
     /**
      * Optimization: Remove entities that are far behind
+     * @param {number} thresholdX - Position behind which entities can be removed
+     * @param {GameState} gameState - Optional game state to check collected/hit items
      */
-    cleanupEntities(thresholdX) {
-        // Filter in place is expensive, maybe just shift if sorted?
-        // For safety, simple filter
+    cleanupEntities(thresholdX, gameState = null) {
+        // Platforms can always be cleaned up
         this.activeEntities.platforms = this.activeEntities.platforms.filter(p => p.x + p.width > thresholdX);
-        this.activeEntities.obstacles = this.activeEntities.obstacles.filter(o => o.x > thresholdX);
-        this.activeEntities.collectibles = this.activeEntities.collectibles.filter(c => c.x > thresholdX);
+
+        // DO NOT remove obstacles/collectibles if they've been interacted with
+        // This prevents ID regeneration issues
+        this.activeEntities.obstacles = this.activeEntities.obstacles.filter(o => {
+            // Keep if still visible OR if it was hit (to preserve ID)
+            if (o.x > thresholdX) return true;
+            if (gameState && gameState.isHit(o.id)) return false; // Can safely remove hit obstacles
+            return o.x > thresholdX;
+        });
+
+        this.activeEntities.collectibles = this.activeEntities.collectibles.filter(c => {
+            // Keep if still visible OR if it was collected (to preserve ID)
+            if (c.x > thresholdX) return true;
+            if (gameState && gameState.isCollected(c.id)) return false; // Can safely remove collected items
+            return c.x > thresholdX;
+        });
     }
 
     /**

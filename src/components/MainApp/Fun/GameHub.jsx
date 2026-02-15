@@ -123,24 +123,31 @@ const GameHub = () => {
     // Handle Back Button in Game View
     useEffect(() => {
         if (selectedGame) {
-            registerHandler('active-game', () => setSelectedGame(null), 50);
+            registerHandler('active-game', handleExitGame, 50);
         } else {
             unregisterHandler('active-game');
         }
         return () => unregisterHandler('active-game');
     }, [selectedGame]);
 
-    // Auto-Join from Invite
+    // Auto-Join from Invite OR Persistence
     useEffect(() => {
+        // 1. Check for pending invites
         const pendingGameId = localStorage.getItem('pending_game');
         if (pendingGameId) {
             const game = GAMES.find(g => g.id === pendingGameId);
             if (game) {
                 setIsGuest(true);
                 setSelectedGame(game);
+                // Don't save active_game here yet? Or yes?
+                // If invite, we want to stay there.
+                localStorage.setItem('active_game', pendingGameId);
             }
             localStorage.removeItem('pending_game');
+            return;
         }
+
+
     }, []);
 
     const handleSelectGame = (game) => {
@@ -149,6 +156,12 @@ const GameHub = () => {
 
         setIsGuest(false); // Manually selected -> Host
         setSelectedGame(game);
+        localStorage.setItem('active_game', game.id);
+    };
+
+    const handleExitGame = () => {
+        setSelectedGame(null);
+        localStorage.removeItem('active_game');
     };
 
     const sendInvite = async () => {
@@ -276,7 +289,7 @@ const GameHub = () => {
                         <div className="pl-4 pr-14 py-4 flex items-center justify-between bg-[#0a0a0a]/80 backdrop-blur-lg border-b border-white/5">
                             <div className="flex items-center gap-3">
                                 <button
-                                    onClick={() => setSelectedGame(null)}
+                                    onClick={handleExitGame}
                                     className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-white transition"
                                 >
                                     <ChevronRight size={20} />
@@ -302,7 +315,10 @@ const GameHub = () => {
 
                         {/* Game Component */}
                         <div className="flex-1 overflow-hidden relative">
-                            {React.createElement(selectedGame.component, { isGuest })}
+                            {React.createElement(selectedGame.component, {
+                                isGuest,
+                                onExit: handleExitGame
+                            })}
                         </div>
                     </motion.div>
                 )}

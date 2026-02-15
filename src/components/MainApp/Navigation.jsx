@@ -1,8 +1,12 @@
-import { Home, Map, Heart, Gamepad2, Settings, User, Ticket, Newspaper, BookOpen } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useImmersiveMode } from '../../context/ImmersiveModeContext';
+import { Home, Map, Heart, Gamepad2, Settings, User, Ticket, Newspaper, BookOpen } from 'lucide-react';
 
 const Navigation = ({ activeTab, onTabChange }) => {
     const { userRole: role } = useAuth();
+    const { isImmersive } = useImmersiveMode();
+
+    if (isImmersive) return null;
 
     const tabs = [
         { id: 'home', icon: Home, label: 'الرئيسية' },

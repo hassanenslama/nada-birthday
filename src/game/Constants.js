@@ -26,9 +26,19 @@ export const PLAYER = {
     // New Sprite Sheet is 960x420 (4 cols x 2 rows)
     // Frame size: 240x210
     // Aspect Ratio: 1.14 : 1
-    // Visual Size: Reduced by ~30% from original 160
-    WIDTH: 114,             // 100 * 1.14
-    HEIGHT: 100,            // Base height
+    // Visual Size (Sprite Dimensions)
+    VISUAL_WIDTH: 114,
+    VISUAL_HEIGHT: 100,
+
+    // Physics Hitbox (Actual Collision Box)
+    // Tighter box for fairer gameplay
+    HITBOX_WIDTH: 50,
+    HITBOX_HEIGHT: 70,
+
+    // Legacy aliases to prevent immediate crashes before full refactor (optional, but good safety)
+    WIDTH: 50,  // Defaults to Hitbox size for physics calculations
+    HEIGHT: 70, // Defaults to Hitbox size for physics calculations
+
     BASE_SPEED: 300,        // Pixels per second (horizontal)
     RUN_SPEED: 450,         // Running speed
     MAX_LIVES: 3,
@@ -55,9 +65,11 @@ export const CHARACTERS = {
     MR_SANTA: {
         id: 'mr-santa',
         name: 'Mr. Santa',
+        nameAr: 'سانتا كلوز',
         unlocked: true,
-        cost: 0,
-        ability: 'Default',
+        price: 0,  // Free
+        ability: 'Balanced Character',
+        abilityAr: 'شخصية متوازنة',
         sprites: {
             idle: 'mr-santa-idle',
             running: 'mr-santa-running',
@@ -71,9 +83,11 @@ export const CHARACTERS = {
     MRS_SANTA: {
         id: 'mrs-santa',
         name: 'Mrs. Santa',
+        nameAr: 'ميس سانتا',
         unlocked: true,
-        cost: 0,
+        price: 0,  // Free
         ability: '+5% Heart Collection',
+        abilityAr: '+5% مكافأة القلوب',
         sprites: {
             idle: 'mrs-santa-idle',
             running: 'mrs-santa-running',
@@ -132,6 +146,12 @@ export const COLLECTIBLES = {
         points: 100,
         sprite: 'collectible-star',
     },
+    'COLLECTIBLE-FINISH': {
+        points: 1000,
+        sprite: 'collectible-finish',
+        width: 120,
+        height: 120
+    }
 };
 
 // === OBSTACLES ===

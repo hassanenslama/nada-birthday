@@ -97,7 +97,10 @@ export const PresenceProvider = ({ children }) => {
                         location: getLocationName(location.pathname),
                         is_typing: false // Can be updated by specific pages
                     };
-                    await channel.track(presenceData);
+                    // Only track presence if NOT in ghost mode
+                    if (!isGhostModeRef.current) {
+                        await channel.track(presenceData);
+                    }
                     setMyPresence(presenceData);
                 }
             });
@@ -109,14 +112,13 @@ export const PresenceProvider = ({ children }) => {
         };
     }, [currentUser]);
 
-    // Update location when route changes
+    // Update location when route changes - SKIP IF GHOST MODE
     useEffect(() => {
         if (!currentUser || !channelRef.current) return;
+        if (isGhostModeRef.current) return; // Don't update location in ghost mode
 
         const updateLocation = async () => {
             const newLocation = getLocationName(location.pathname);
-            // We can't access "current" presence easily without tracking state locally or re-tracking
-            // Simply re-tracking with new data updates the presence
             await channelRef.current.track({
                 online_at: new Date().toISOString(),
                 user_id: currentUser.id,
@@ -142,64 +144,65 @@ export const PresenceProvider = ({ children }) => {
             });
         }
 
-        // 2. Update Database Tracking Info (Persistent) - ALWAYS UPDATE (For Admin Visibility)
-        // We capture IP and Device Info
-        try {
-            let device = navigator.userAgent;
+        // 2. Update Database Tracking Info (Persistent) - SKIP IF GHOST MODE
+        // When Ghost Mode is ON, we don't update last_seen so the user appears truly offline
+        if (!isGhostModeRef.current) {
+            try {
+                let device = navigator.userAgent;
 
-            // Simple parser for nicer device name
-            if (device.match(/Android/i)) device = 'Android Phone';
-            else if (device.match(/iPhone/i)) device = 'iPhone';
-            else if (device.match(/iPad/i)) device = 'iPad';
-            else if (device.match(/Windows/i)) device = 'Windows PC';
-            else if (device.match(/Mac/i)) device = 'Mac';
+                // Simple parser for nicer device name
+                if (device.match(/Android/i)) device = 'Android Phone';
+                else if (device.match(/iPhone/i)) device = 'iPhone';
+                else if (device.match(/iPad/i)) device = 'iPad';
+                else if (device.match(/Windows/i)) device = 'Windows PC';
+                else if (device.match(/Mac/i)) device = 'Mac';
 
-            // Fetch IP
-            fetch('https://api.ipify.org?format=json')
-                .then(res => res.json())
-                .then(async (data) => {
-                    if (data?.ip) {
-                        const currentIp = data.ip;
+                // Fetch IP
+                fetch('https://api.ipify.org?format=json')
+                    .then(res => res.json())
+                    .then(async (data) => {
+                        if (data?.ip) {
+                            const currentIp = data.ip;
 
-                        // 1. Update Profile (Last Seen/Last IP)
-                        supabase
-                            .from('user_profiles')
-                            .update({
-                                last_seen: now,
-                                last_ip: currentIp,
-                                device_info: device
-                            })
-                            .eq('id', currentUser.id)
-                            .then(({ error }) => { if (error) console.error("Error updating profile tracking:", error); });
+                            // 1. Update Profile (Last Seen/Last IP)
+                            supabase
+                                .from('user_profiles')
+                                .update({
+                                    last_seen: now,
+                                    last_ip: currentIp,
+                                    device_info: device
+                                })
+                                .eq('id', currentUser.id)
+                                .then(({ error }) => { if (error) console.error("Error updating profile tracking:", error); });
 
-                        // 2. Check and Insert History (If IP changed)
-                        // Get latest log
-                        const { data: lastLog } = await supabase
-                            .from('login_history')
-                            .select('ip_address')
-                            .eq('user_id', currentUser.id)
-                            .order('created_at', { ascending: false })
-                            .limit(1)
-                            .maybeSingle();
+                            // 2. Check and Insert History (If IP changed)
+                            const { data: lastLog } = await supabase
+                                .from('login_history')
+                                .select('ip_address')
+                                .eq('user_id', currentUser.id)
+                                .order('created_at', { ascending: false })
+                                .limit(1)
+                                .maybeSingle();
 
-                        if (!lastLog || lastLog.ip_address !== currentIp) {
-                            console.log("📝 New IP detected, logging to history:", currentIp);
-                            await supabase.from('login_history').insert({
-                                user_id: currentUser.id,
-                                ip_address: currentIp,
-                                device_info: device,
-                                location: newLocation
-                            });
+                            if (!lastLog || lastLog.ip_address !== currentIp) {
+                                console.log("📝 New IP detected, logging to history:", currentIp);
+                                await supabase.from('login_history').insert({
+                                    user_id: currentUser.id,
+                                    ip_address: currentIp,
+                                    device_info: device,
+                                    location: newLocation
+                                });
+                            }
                         }
-                    }
-                })
-                .catch(err => {
-                    // Update timestamp even if IP fetch fails
-                    supabase.from('user_profiles').update({ last_seen: now }).eq('id', currentUser.id);
-                });
+                    })
+                    .catch(err => {
+                        // Update timestamp even if IP fetch fails
+                        supabase.from('user_profiles').update({ last_seen: now }).eq('id', currentUser.id);
+                    });
 
-        } catch (e) {
-            console.error("Tracking Error:", e);
+            } catch (e) {
+                console.error("Tracking Error:", e);
+            }
         }
     };
 
@@ -210,9 +213,9 @@ export const PresenceProvider = ({ children }) => {
             updatePresenceLocal(getLocationName(location.pathname));
         }, 120000); // 2 mins
 
-        // Update on visibility change (tab close/minimize)
+        // Update on visibility change (tab close/minimize) - SKIP IF GHOST MODE
         const handleVisibilityChange = () => {
-            if (document.visibilityState === 'hidden') {
+            if (document.visibilityState === 'hidden' && !isGhostModeRef.current) {
                 supabase
                     .from('user_profiles')
                     .update({ last_seen: new Date().toISOString() })

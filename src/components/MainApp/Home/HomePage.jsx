@@ -7,6 +7,8 @@ import { Power, AlertTriangle, ShieldAlert, Lock, HeartCrack, RotateCw } from 'l
 
 // Default start date (User can change this)
 const START_DATE = '2024-11-30T19:30:00';
+// Freeze the counter at this date (stop counting)
+const FREEZE_DATE = '2026-02-15T18:43:00';
 
 const HomePage = () => {
     console.log("🚀 HomePage Rendering. Shutdown State:", useSiteStatus().isShutdown);
@@ -97,7 +99,7 @@ const HomePage = () => {
 
                     {/* Love Counter - Prominent at TOP */}
                     <div className={`${isShutdown ? 'opacity-80' : ''} transition-all duration-1000`}>
-                        <LoveCounter startDate={START_DATE} isFrozen={isShutdown} frozenAt={shutdownTime} />
+                        <LoveCounter startDate={START_DATE} isFrozen={true} frozenAt={FREEZE_DATE} />
                     </div>
                 </div>
 

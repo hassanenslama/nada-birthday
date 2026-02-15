@@ -17,9 +17,19 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 // Initialize Services
+// Safely initialize messaging handling potential errors in environments without SW support
+let messaging = null;
+try {
+    if (typeof window !== "undefined" && 'serviceWorker' in navigator) {
+        messaging = getMessaging(app);
+    }
+} catch (error) {
+    console.warn("Firebase Messaging failed to initialize (likely due to insecure context or missing SW support):", error);
+}
+
+export { messaging };
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
-export const messaging = typeof window !== "undefined" ? getMessaging(app) : null;
 
 export default app;

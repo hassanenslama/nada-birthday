@@ -37,15 +37,7 @@ const HeartbeatAnimation = () => {
                     }}
                 />
 
-                {/* Christmas Hat Overlay */}
-                <motion.div
-                    className="absolute -top-12 -right-4 text-6xl filter drop-shadow-lg z-20 pointer-events-none"
-                    initial={{ rotate: 15 }}
-                    animate={{ rotate: [15, 5, 15] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                >
-                    🎅
-                </motion.div>
+
             </div>
 
             {/* Floating Particles Heart Emission */}

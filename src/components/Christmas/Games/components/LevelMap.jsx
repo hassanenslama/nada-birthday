@@ -66,39 +66,43 @@ const LevelMap = ({ worldId, onBack, onPlayLevel }) => {
     }, [user, worldId]);
 
     return (
-        <div className="fixed inset-0 z-[9999] bg-[#1e293b] flex flex-col items-center">
+        <div className="fixed inset-0 z-[9999] bg-[#1e293b] flex flex-col items-center p-4">
             {/* Header */}
-            <div className="w-full p-6 bg-slate-900 border-b border-white/10 flex items-center justify-between">
-                <button onClick={onBack} className="text-white hover:text-yellow-400 transition-colors flex items-center gap-2">
-                    ⬅️ Worlds
+            <div className="w-full flex items-center justify-between z-10 mb-2 lg:mb-8 px-2 lg:px-8 border-b border-white/5 pb-2">
+                <button
+                    onClick={onBack}
+                    className="flex items-center gap-2 px-3 py-1 lg:px-4 lg:py-2 bg-white/5 hover:bg-white/10 rounded-full text-white transition-colors"
+                >
+                    <span className="text-lg lg:text-2xl">⬅️</span>
+                    <span className="hidden lg:inline text-base font-bold">Back</span>
                 </button>
                 <div className="flex flex-col items-center">
-                    <span className="text-white/50 text-xs uppercase tracking-widest">WORLD 1</span>
-                    <h2 className="text-2xl font-bold text-white">Christmas Village</h2>
+                    <span className="text-white/30 text-[8px] lg:text-xs uppercase tracking-[0.2em] lg:tracking-widest">WORLD 1</span>
+                    <h2 className="text-xl lg:text-4xl font-bold text-white drop-shadow-md">Christmas Village</h2>
                 </div>
-                <div className="w-20"></div>
+                <div className="w-10 lg:w-24"></div> {/* Spacer */}
             </div>
 
             {/* Map Path UI */}
-            <div className="flex-1 w-full max-w-4xl flex items-center justify-center relative">
-                {/* Winding Path SVG Line (Decorative) */}
-                <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-20" viewBox="0 0 800 400">
-                    <path d="M100,300 Q250,100 400,300 T700,200" fill="none" stroke="white" strokeWidth="4" strokeDasharray="10 10" />
+            <div className="flex-1 w-full max-w-5xl flex items-center justify-center relative">
+                {/* Winding Path SVG Line (Decorative) - Adjusted opacity and stroke */}
+                <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-10" viewBox="0 0 800 400" preserveAspectRatio="none">
+                    <path d="M100,200 Q250,50 400,200 T700,200" fill="none" stroke="white" strokeWidth="2" strokeDasharray="5 5" />
                 </svg>
 
-                <div className="grid grid-cols-3 md:grid-cols-4 gap-12 z-10 p-8">
+                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 lg:gap-16 z-10 p-4">
                     {levels.map((level) => {
                         const isLocked = level.status === 'locked';
                         const isCompleted = level.status === 'completed';
 
                         return (
-                            <div key={level.id} className="flex flex-col items-center gap-4">
+                            <div key={level.id} className="flex flex-col items-center gap-2 lg:gap-4 group">
                                 <button
-                                    disabled={false} // Enable click for locked too
+                                    disabled={false}
                                     onClick={() => {
                                         if (isLocked) {
                                             const toast = document.createElement('div');
-                                            toast.className = 'fixed top-10 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-full shadow-xl z-[100000] animate-bounce font-bold';
+                                            toast.className = 'fixed top-10 left-1/2 -translate-x-1/2 bg-red-600 text-white px-4 py-2 lg:px-6 lg:py-3 rounded-full shadow-xl z-[100000] animate-bounce font-bold text-xs lg:text-base';
                                             toast.innerText = '🔒 عليك إنهاء المراحل السابقة لتصل إلى هنا';
                                             document.body.appendChild(toast);
                                             setTimeout(() => toast.remove(), 2000);
@@ -107,48 +111,48 @@ const LevelMap = ({ worldId, onBack, onPlayLevel }) => {
                                         }
                                     }}
                                     className={`
-                                        relative w-24 h-24 rounded-3xl flex items-center justify-center text-3xl font-black shadow-xl transition-all duration-300
+                                        relative w-16 h-16 lg:w-28 lg:h-28 rounded-2xl lg:rounded-3xl flex items-center justify-center text-xl lg:text-4xl font-black shadow-lg transition-all duration-300
                                         ${isLocked
-                                            ? 'bg-slate-800 text-slate-600 border-4 border-slate-700 cursor-not-allowed hover:bg-slate-700'
+                                            ? 'bg-slate-800 text-slate-600 border-2 lg:border-4 border-slate-700 cursor-not-allowed group-hover:bg-slate-750'
                                             : isCompleted
-                                                ? 'bg-green-500 text-white border-4 border-green-400 hover:scale-110 hover:-translate-y-2'
-                                                : 'bg-yellow-400 text-yellow-900 border-4 border-yellow-200 animate-pulse-slow hover:scale-110'
+                                                ? 'bg-green-500 text-white border-2 lg:border-4 border-green-400 hover:scale-110 hover:-translate-y-1 lg:hover:-translate-y-2'
+                                                : 'bg-yellow-400 text-yellow-900 border-2 lg:border-4 border-yellow-200 animate-pulse-slow hover:scale-110'
                                         }
                                     `}
                                 >
                                     {isLocked ? (
-                                        <img src="/images/game-santa/UI-Elements/Level-Locked-Icon.png" className="w-10 h-10 opacity-50" />
+                                        <img src={`${import.meta.env.BASE_URL}images/game-santa/UI-Elements/Level-Locked-Icon.png`} className="w-6 h-6 lg:w-10 lg:h-10 opacity-50" alt="Locked" />
                                     ) : (
                                         <span>{level.id}</span>
                                     )}
 
                                     {/* Unlocked / Current Indicator */}
                                     {!isLocked && !isCompleted && (
-                                        <div className="absolute -top-3 -right-3 w-8 h-8 bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-white text-xs animate-bounce">
+                                        <div className="absolute -top-2 -right-2 lg:-top-3 lg:-right-3 w-5 h-5 lg:w-8 lg:h-8 bg-red-500 rounded-full border border-white flex items-center justify-center text-white text-[8px] lg:text-xs animate-bounce shadow-sm">
                                             NEW
                                         </div>
                                     )}
                                 </button>
 
                                 {/* Info / Stars */}
-                                <div className="flex flex-col items-center gap-1 min-h-[40px]">
+                                <div className="flex flex-col items-center gap-0.5 lg:gap-1 min-h-[20px] lg:min-h-[40px]">
                                     {!isLocked && (
                                         <>
-                                            <div className="flex gap-1">
+                                            <div className="flex gap-0.5 lg:gap-1">
                                                 {[1, 2, 3].map(star => (
                                                     <img
                                                         key={star}
                                                         src={star <= level.stars
-                                                            ? "/images/game-santa/UI-Elements/Star-Filled.png"
-                                                            : "/images/game-santa/UI-Elements/Star-Empty.png"
+                                                            ? `${import.meta.env.BASE_URL}images/game-santa/UI-Elements/Star-Filled.png`
+                                                            : `${import.meta.env.BASE_URL}images/game-santa/UI-Elements/Star-Empty.png`
                                                         }
-                                                        className="w-5 h-5 drop-shadow-sm"
+                                                        className="w-3 h-3 lg:w-6 lg:h-6 drop-shadow-sm"
                                                         alt="star"
                                                     />
                                                 ))}
                                             </div>
                                             {level.score > 0 && (
-                                                <span className="text-white/40 text-[10px] font-mono">HI: {level.score}</span>
+                                                <span className="text-white/30 text-[8px] lg:text-xs font-mono tracking-tighter">HI: {level.score}</span>
                                             )}
                                         </>
                                     )}

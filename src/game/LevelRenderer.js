@@ -95,13 +95,17 @@ class LevelRenderer {
         // ctx.translate(camera.x, camera.y); // REMOVED - Caused black bar on left
 
         // STEP 1: Draw solid sky gradient (no transparency issues)
+        // STEP 1: Draw solid sky gradient (no transparency issues)
+        // We use the passed canvasWidth/Height which ARE distinct from the Game's logical coordinate system
+        // because we are in Screen Space here (before any scaling/translation).
         const skyGradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
-        skyGradient.addColorStop(0, '#4a90e2');    // Top - bright blue
-        skyGradient.addColorStop(0.5, '#87ceeb');  // Middle - sky blue
-        skyGradient.addColorStop(1, '#b0e0f6');    // Bottom - light blue
+        skyGradient.addColorStop(0, '#0f172a');    // Top - Night Dark Blue
+        skyGradient.addColorStop(0.5, '#1e293b');  // Middle - Slate
+        skyGradient.addColorStop(1, '#334155');    // Bottom - Lighter Slate
 
         ctx.fillStyle = skyGradient;
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        // Fill a slightly larger area to be safe against rounding errors
+        ctx.fillRect(-1, -1, canvasWidth + 2, canvasHeight + 2);
 
         // STEP 2: Draw parallax layers in order (back to front)
         this.parallaxLayers.forEach((layer, index) => {
@@ -140,41 +144,45 @@ class LevelRenderer {
 
             // INFINITE SCROLLING ALGORITHM (100% Robust)
             // Calculate how much the layer has scrolled in world space
-            const worldScroll = camera.x * layer.speed;
-
             // Find offset within a single tile (this creates the seamlessloop)
-            const tileOffset = worldScroll % scaledWidth;
+            // Tiling Logic
+            // tileOffset is how much the "pattern" has shifted left within a single tile width.
+            const tileOffset = Math.floor((camera.x * layer.speed) % scaledWidth);
 
-            // Start drawing one full tile BEFORE the left edge
-            // This ensures even during fast movement we never see gaps
-            let xPos = -tileOffset - scaledWidth;
+            // Start drawing from just outside the left edge to ensure coverage
+            // We use Math.floor to keep pixels snappy and avoid sub-pixel blurring seams
+            let xPos = -tileOffset;
+            if (xPos > 0) xPos -= scaledWidth;
 
-            // Draw tiles across entire screen + 2 tile buffer (left + right)
-            const tilesNeeded = Math.ceil(canvasWidth / scaledWidth) + 3;
+            // Calculate tiles needed: Screen Width + buffer for the offset + buffer for right edge
+            const tilesNeeded = Math.ceil(canvasWidth / scaledWidth) + 2;
 
-            // Set opacity for snow layer
+            // Set opacity for snow layer only
             if (layer.speed === 1.0) {
-                ctx.globalAlpha = 0.5;
+                // Often the "front" snow layer.
+                // Let's keep it fully opaque if it's the main ground layer?
+                // Checking asset name usually safer, but speed heuristic implies foreground.
+                // removing hardcoded opacity unless specifically requested.
+                // ctx.globalAlpha = 0.5; 
             }
 
             for (let i = 0; i < tilesNeeded; i++) {
+                // Ensure no gaps by using Math.floor/ceil on coords if needed, 
+                // but drawImage handles floats usually. The GAP comes from scaling floats.
+                // We overlap slightly by +1 pixel if needed, or just trust the integer math.
+                // Let's rely on the calculated xPos iterating by scaledWidth.
                 ctx.drawImage(
                     layer.image,
-                    xPos, yPos,
-                    scaledWidth, scaledHeight
+                    Math.floor(xPos + (i * scaledWidth)),
+                    Math.floor(yPos),
+                    Math.ceil(scaledWidth) + 1, // +1 Overlap to fix seams
+                    Math.ceil(scaledHeight)
                 );
-                xPos += scaledWidth;
             }
 
             // Reset opacity after each layer
             ctx.globalAlpha = 1.0;
         });
-
-        // CONTRAST OVERLAY (Fix for "Busy Background" Issue)
-        // Draws a semi-transparent black layer over the background
-        // but BEHIND the platforms/gameplay.
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'; // 30% Dark dim
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
         // RESTORE CONTEXT STATE
         ctx.restore();
@@ -274,7 +282,7 @@ class LevelRenderer {
         const deltaTime = 16.67; // Approximate frame time
 
         this.levelData.collectibles.forEach((item, index) => {
-            const itemId = `collectible-${index}`;
+            const itemId = item.id;
 
             // SKIP IF COLLECTED
             if (gameState && gameState.isCollected(itemId)) return;
@@ -385,31 +393,51 @@ class LevelRenderer {
 
     /**
      * Draw dynamic world (Procedural Generation)
+     * Updated Signature: Decoupled from screen dimensions, focuses on World Space
      */
-    drawDynamic(ctx, camera, canvasWidth, canvasHeight, entities, gameState, player) {
-        // Background (Parallax)
-        ctx.save();
-        this.drawBackground(ctx, camera, canvasWidth, canvasHeight);
-        ctx.restore();
+    drawDynamic(ctx, camera, entities, gameState, player) {
+        // NOTE: Background layer should be drawn by GameEngine BEFORE calling this.
+        // We assume ctx is already scaled and ready for world coordinates (except camera translation).
 
         // Save Context for camera transform
         ctx.save();
         ctx.translate(-camera.x, -camera.y);
 
         // Draw Platforms
-        entities.platforms.forEach(platform => {
-            this.drawPlatform(ctx, platform);
-        });
+        if (entities && entities.platforms) {
+            entities.platforms.forEach(platform => {
+                this.drawPlatform(ctx, platform);
+            });
+        }
 
         // Draw Obstacles
-        entities.obstacles.forEach(obstacle => {
-            this.drawObstacle(ctx, obstacle);
-        });
+        if (entities && entities.obstacles) {
+            entities.obstacles.forEach(obstacle => {
+                this.drawObstacle(ctx, obstacle);
+            });
+        }
 
         // Draw Collectibles
-        entities.collectibles.forEach(collectible => {
-            this.drawCollectible(ctx, collectible, gameState);
-        });
+        if (entities && entities.collectibles) {
+            entities.collectibles.forEach(collectible => {
+                // Fix: Check if collected
+                if (gameState && gameState.isCollected(collectible.id)) return;
+                this.drawCollectible(ctx, collectible, gameState);
+            });
+        }
+
+        // Draw Finish Line (if any)
+        if (entities && entities.finish) {
+            // We need to inject the level data temporarily or refactor 'drawFinish'
+            // 'drawFinish' relies on 'this.levelData'. 
+            // Ideally we pass 'entities' to 'drawFinish'.
+            // For safety/speed, let's just polyfill `this.levelData` here or refactor drawFinish.
+            // Quick Fix:
+            const oldData = this.levelData;
+            this.levelData = entities;
+            this.drawFinish(ctx);
+            this.levelData = oldData;
+        }
 
         // Draw Player (Render layer order: behind particles, in front of objects)
         if (player) {
@@ -453,6 +481,7 @@ class LevelRenderer {
         }
 
         // DEBUG: Draw Platform Hitbox
+        // DEBUG: Draw Platform Hitbox
         ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
         ctx.lineWidth = 2;
         ctx.strokeRect(platform.x, platform.y, platform.width, platformConfig ? platformConfig.height : 40);
@@ -486,6 +515,7 @@ class LevelRenderer {
         }
 
         // DEBUG: Draw Obstacle Hitbox
+        // DEBUG: Draw Obstacle Hitbox
         ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
         ctx.lineWidth = 2;
         ctx.strokeRect(obstacle.x, obstacle.y, obstacleConfig.width, obstacleConfig.height);
@@ -493,6 +523,9 @@ class LevelRenderer {
 
     drawCollectible(ctx, collectible, gameState) {
         const type = collectible.type.toUpperCase();
+        // Skip specialized rendering for finish line (handled by drawFinish)
+        if (type === 'COLLECTIBLE-FINISH') return;
+
         let spriteName = '';
         let width = 40;
         let height = 40;
@@ -619,7 +652,7 @@ class LevelRenderer {
 
         for (let i = 0; i < this.levelData.collectibles.length; i++) {
             const item = this.levelData.collectibles[i];
-            const itemId = `collectible-${i}`;
+            const itemId = item.id;
 
             // Skip if already collected
             if (gameState.isCollected(itemId)) continue;
@@ -627,7 +660,8 @@ class LevelRenderer {
             const collectibleConfig = COLLECTIBLES[item.type.toUpperCase()];
             if (!collectibleConfig) return;
 
-            const itemSize = 50; // Rendering size
+            // FIX: Use config size if available, else default to 50
+            const itemSize = collectibleConfig.width || 50;
 
             // Circle Collision Detection
             // Use center points for accuracy
@@ -663,7 +697,7 @@ class LevelRenderer {
 
         for (let i = 0; i < this.levelData.obstacles.length; i++) {
             const obstacle = this.levelData.obstacles[i];
-            const obstacleId = `obstacle-${i}`;
+            const obstacleId = obstacle.id;
 
             // Skip if hit recently (invincibility)
             if (gameState.wasHitRecently(obstacleId)) continue;

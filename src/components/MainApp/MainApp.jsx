@@ -14,10 +14,9 @@ import PostsPage from './Posts/PostsPage';
 import GuidePage from './Guide/GuidePage';
 
 import GlobalBackground from './GlobalBackground';
-import Snowfall from '../Christmas/Snowfall';
+
 import ChristmasHub from '../Christmas/ChristmasHub';
-import SantaFlyover from '../Christmas/SantaFlyover';
-import ChristmasMusic from '../Christmas/ChristmasMusic';
+
 
 import { usePresence } from '../../context/PresenceContext';
 import { useImmersiveMode } from '../../context/ImmersiveModeContext.jsx';
@@ -124,10 +123,9 @@ const MainApp = () => {
             {/* HIDE these in Immersive Mode */}
             {!isImmersive && (
                 <>
-                    <Snowfall />
+
                     <ChristmasHub />
-                    <SantaFlyover />
-                    <ChristmasMusic />
+
 
                     {/* Notifications Bell - Top Right */}
                     <div className="absolute top-4 right-4 z-50">

@@ -64,6 +64,13 @@ class GameState {
     }
 
     /**
+     * Check if obstacle was hit (alias for compatibility)
+     */
+    isHit(obstacleId) {
+        return this.wasHitRecently(obstacleId);
+    }
+
+    /**
      * Check if obstacle was hit recently
      */
     wasHitRecently(obstacleId) {

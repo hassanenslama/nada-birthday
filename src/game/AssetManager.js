@@ -49,7 +49,9 @@ class AssetManager {
      * تحميل كل الأصول
      */
     async loadAll() {
-        const basePath = '/images/game-santa';
+        // Use import.meta.env.BASE_URL which is set to /nada-birthday/ in vite.config.js for production
+        // BASE_URL includes trailing slash, so we append 'images/game-santa' (no leading slash)
+        const basePath = `${import.meta.env.BASE_URL}images/game-santa`;
 
         const assets = {
             // === CHARACTERS ===
